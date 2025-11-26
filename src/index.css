@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+
+/* برای اینکه کل صفحه اسکرول نداشته باشه */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* بدون اسکرول */
+}
+
+/* ستاره‌های خیلی واضح و درشت برای تست */
+.stars-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  background-image:
+    radial-gradient(3px 3px at 10% 20%, white, transparent),
+    radial-gradient(3px 3px at 30% 80%, white, transparent),
+    radial-gradient(3px 3px at 70% 50%, white, transparent),
+    radial-gradient(3px 3px at 90% 30%, white, transparent),
+    radial-gradient(2px 2px at 20% 60%, white, transparent),
+    radial-gradient(2px 2px at 80% 40%, white, transparent),
+    radial-gradient(2px 2px at 50% 10%, white, transparent),
+    radial-gradient(2px 2px at 40% 90%, white, transparent);
+
+  background-size: 200px 200px;
+  background-repeat: repeat;
+  opacity: 1;
+  animation: twinkle 1.2s ease-in-out infinite alternate;
+}
+@keyframes twinkle {
+  0% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+body {
+  font-family: "Vazir", sans-serif;
+}
+
+[dir="ltr"] {
+  font-family: "Inter", sans-serif;
+}
+
+[dir="rtl"] {
+  font-family: "Vazir", sans-serif;
+}
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #020617; /* سرمه‌ای تیره به‌جای طوسی */
+}
+/* مدار بیضی شکل ماهواره (روی کانتینر) */
+@keyframes sat-orbit {
+  0% {
+    transform: translate(-50%, -50%)
+               translateX(-30px) translateY(-10px);
+  }
+  25% {
+    transform: translate(-50%, -50%)
+               translateX(0px) translateY(-28px);
+  }
+  50% {
+    transform: translate(-50%, -50%)
+               translateX(32px) translateY(-5px);
+  }
+  75% {
+    transform: translate(-50%, -50%)
+               translateX(4px) translateY(20px);
+  }
+  100% {
+    transform: translate(-50%, -50%)
+               translateX(-30px) translateY(-10px);
+  }
+}
+
+.animate-sat-orbit {
+  animation: sat-orbit 26s ease-in-out infinite;
+}
+
+/* چرخش ملایم خود ماهواره (برای پره‌ها) */
+@keyframes sat-spin {
+  0% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+  100% {
+    transform: rotate(-4deg);
+  }
+}
+
+.animate-sat-spin {
+  animation: sat-spin 7s ease-in-out infinite;
+}
+@keyframes star-twinkle {
+  0% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+}
+
+.animate-star-twinkle {
+  animation: star-twinkle 3.5s ease-in-out infinite;
+}
+
+
