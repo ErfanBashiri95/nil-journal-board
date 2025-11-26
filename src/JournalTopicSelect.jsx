@@ -9,8 +9,8 @@ function JournalTopicSelect({ isFa, username, onBack, onOpenTopic }) {
   // فعلاً تا وقتی بک‌اند نداریم، دو تا تاپیک نمونه:
   const topics = isFa
     ? [
-        { id: "t1", label: "تاپیک ۱", desc: "مثلاً هوشیاری مالی" },
-        { id: "t2", label: "تاپیک ۲", desc: "مثلاً مدار همدلی" },
+        { id: "t1", label: "تاپیک ۱", desc: "" },
+        { id: "t2", label: "تاپیک ۲", desc: "" },
       ]
     : [
         { id: "t1", label: "Topic 1", desc: "e.g. Financial Awareness" },
