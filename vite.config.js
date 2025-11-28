@@ -6,7 +6,8 @@ export default defineConfig({
 
   preview: {
     allowedHosts: [
-      "nil-journal-board-production.up.railway.app", // ← دامین Railway تو
+      "nil-journal.nilpapd.com",
+       // ← دامین Railway تو
     ],
   },
 
