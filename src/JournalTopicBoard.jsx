@@ -258,8 +258,9 @@ export default function JournalTopicBoard({
       );
     }
 
+    // 🔹 این قسمت حالا خودش اسکرول کامل دارد (بدون محدودیت ارتفاع کوچک)
     return (
-      <div className="mt-2 max-h-36 md:max-h-40 overflow-auto pr-1 pb-2 scroll-area">
+      <div className="mt-2 overflow-auto pr-1 pb-2 scroll-area">
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
           {items.map((f) => (
             <div
@@ -349,7 +350,7 @@ export default function JournalTopicBoard({
           <div
             onDrop={(e) => handleDrop(e, "audio")}
             onDragOver={handleDragOver}
-            className="mt-1 rounded-xl border border-emerald-500/60 border-dashed bg-emerald-500/5 hover:bg-emerald-500/10 transition px-3 py-3 flex flex.col gap-2 items-center justify-center text-center"
+            className="mt-1 rounded-xl border border-emerald-500/60 border-dashed bg-emerald-500/5 hover:bg-emerald-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
           >
             <p className="text-[10px] md:text-xs text-slate-200">
               فایل‌های صوتی را اینجا بکش و رها کن
@@ -402,7 +403,7 @@ export default function JournalTopicBoard({
             <p className="text-[10px] md:text-xs text-slate-200">
               عکس‌ها و ویدئوها را اینجا بکش و رها کن
             </p>
-            <label className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/70 bg-fuchsia-400/15 px-3 py-1.5 text-[10px] md:text-xs cursor-pointer hover:bg-fuchsia-400/25 transition">
+            <label className="inline-flex items.center gap-2 rounded-full border border-fuchsia-400/70 bg-fuchsia-400/15 px-3 py-1.5 text-[10px] md:text-xs cursor-pointer hover:bg-fuchsia-400/25 transition">
               <input
                 type="file"
                 multiple
@@ -430,8 +431,8 @@ export default function JournalTopicBoard({
             رو برای این تاپیک ذخیره کنی.
           </p>
 
-          {/* 🔹 کل پنل نوت‌ها اسکرول‌بار دارد */}
-          <div className="flex-1 min-h-0 scroll-area overflow-auto pr-1">
+          {/* 🔹 کانتینر اسکرول برای کل محتوای نوت‌ها */}
+          <div className="flex-1 min-h-0 overflow-auto pr-1 scroll-area">
             <div className="flex flex-col gap-2 pb-3">
               {/* عنوان نوت */}
               <input
@@ -442,7 +443,7 @@ export default function JournalTopicBoard({
                 className="w-full rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-1.5 text-[11px] md:text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-400"
               />
 
-              {/* متن نوت با اسکرول‌بار مخصوص خودش */}
+              {/* متن نوت با اسکرول خودش */}
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
@@ -462,7 +463,7 @@ export default function JournalTopicBoard({
               </div>
 
               {notesList.length > 0 && (
-                <div className="mt-1 space-y-1.5 text-[10px] md:text-xs text-slate-100">
+                <div className="mt-1 space-y-1.5 text-[10px] md:text-xs text-slate-100 max-h-40 overflow-auto pr-1 scroll-area">
                   {notesList.map((n) => {
                     const isEditing = editingNoteId === n.id;
                     return (
@@ -584,16 +585,16 @@ export default function JournalTopicBoard({
             height: 100% !important;
           }
 
-          /* ❗ مانیتور روی موبایل اسکرول نداشته باشد */
+          /* مانیتور روی موبایل اسکرول نداشته باشد */
           .journal-monitor {
             overflow: hidden !important;
           }
 
-          /* 🔹 فقط پنل محتوا روی موبایل اسکرول داشته باشد */
+          /* پنل محتوا روی موبایل اسکرول نرم داشته باشد */
           .panel-scroll {
-            max-height: 50vh;
             overflow-y: auto;
             overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
           }
         }
 
@@ -634,7 +635,7 @@ export default function JournalTopicBoard({
         ))}
       </div>
 
-      <div className="absolute inset-0 flex items-end justify.center pb-[11vh]">
+      <div className="absolute inset-0 flex items-end justify-center pb-[11vh]">
         <div
           className="
             absolute
@@ -650,10 +651,10 @@ export default function JournalTopicBoard({
             top-[23.4%]
             bottom-[12.9%]
 
-            max-sm:left-[0.2%]
-            max-sm:right-[0.2%]
-            max-sm:top-[26.6%]
-            max-sm:bottom-[26.5%]
+            max-sm:left-[0.5%]
+            max-sm:right-[0.5%]
+            max-sm:top-[29.3%]
+            max-sm:bottom-[39.5%]
           "
         >
           <div className="w-full h-full flex flex-col px-3 py-3 md:px-5 md:py-4 text-slate-50 text-xs md:text-sm">
@@ -671,7 +672,7 @@ export default function JournalTopicBoard({
 
             {/* بدنه */}
             <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
-              {/* ستون بخش‌ها (باریک‌تر) */}
+              {/* ستون بخش‌ها */}
               <div className="md:w-[32%] grid grid-cols-2 md:grid-cols-1 gap-2 md:gap-3">
                 {SECTIONS.map((sec) => {
                   const active = sec.id === activeId;
@@ -702,7 +703,6 @@ export default function JournalTopicBoard({
 
             {/* دکمه‌های پایین */}
             <div className="mt-2 flex justify-between items-center gap-2">
-              {/* خروج کامل به صفحه لاگین ژورنال */}
               <button
                 type="button"
                 onClick={onExit}
@@ -711,7 +711,6 @@ export default function JournalTopicBoard({
                 {isFa ? "خروج از ژورنال" : "Exit journal"}
               </button>
 
-              {/* برگشت به صفحه قبل (لیست تاپیک‌ها) */}
               <button
                 type="button"
                 onClick={onBack}
