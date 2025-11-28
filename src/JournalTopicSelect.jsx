@@ -1,9 +1,9 @@
 import bgEarth from "./assets/journal-bg-base.jpg";
 
 function JournalTopicSelect({ isFa, username, topics = [], onBack, onOpenTopic }) {
-  const title = isFa ? "تاپیک‌های تحقیقاتی شما" : "Your Research Topics";
+  const title = isFa ? " ژورنال های شما" : "Your Research Topics";
   const subtitle = isFa
-    ? "یکی از تاپیک‌هایی را که برای مسیر نخبگی انتخاب کرده‌ای، انتخاب کن."
+    ? ""
     : "Choose one of your selected topics to enter its research board.";
 
   const hasTopics = topics && topics.length > 0;
@@ -57,7 +57,7 @@ function JournalTopicSelect({ isFa, username, topics = [], onBack, onOpenTopic }
                            flex flex-col gap-2"
               >
                 <span className="text-xs uppercase tracking-[0.18em] text-sky-300">
-                  NIL JOURNAL TOPIC
+                  
                 </span>
                 <h2 className="text-xl md:text-2xl font-semibold drop-shadow-[0_0_10px_rgba(0,0,0,0.75)] break-words">
                   {topic.topic_title || (isFa ? "تاپیک تحقیقاتی" : "Research Topic")}
