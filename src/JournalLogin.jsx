@@ -1,14 +1,108 @@
+import { useState } from "react";
 import bgEarth from "./assets/journal-bg-base.jpg";
 import satellite from "./assets/satellite.png";
-
+import { supabase } from "./lib/supabaseClient";
 
 function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
+  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const placeholder = isFa
     ? "لطفاً نام کاربری خود را وارد کنید"
     : "Please enter your username";
 
-  const continueText = isFa ? "ادامه" : "Continue";
+  const continueText = loading
+    ? isFa
+      ? "در حال بررسی..."
+      : "Checking..."
+    : isFa
+    ? "ادامه"
+    : "Continue";
+
   const backText = isFa ? "بازگشت" : "Back";
+
+  const handleContinue = async () => {
+    const raw = (username || "").trim();
+
+    if (!raw) {
+      setErrorMsg(
+        isFa
+          ? "لطفاً نام کاربری خود را وارد کن."
+          : "Please enter your username."
+      );
+      return;
+    }
+
+    setErrorMsg("");
+    setLoading(true);
+
+    try {
+      const normalized = raw.toLowerCase();
+
+      const { data, error } = await supabase
+        .from("niljournal_topics")
+        .select("id, username, topic_title, created_at")
+        .ilike("username", normalized)
+        .order("created_at", { ascending: true });
+
+      setLoading(false);
+
+      if (error) {
+        console.error("Supabase error:", error);
+        setErrorMsg(
+          isFa
+            ? "خطا در ارتباط با سرور. لطفاً کمی بعد دوباره تلاش کن."
+            : "Server error. Please try again later."
+        );
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setErrorMsg(
+          isFa
+            ? "چنین نام کاربری‌ای پیدا نشد. لطفاً یوزرنیم را چک کن."
+            : "No journal found for this username. Please check it."
+        );
+        return;
+      }
+
+      // نام کاربری نهایی که از دیتابیس می‌گیریم (برای نمایش)
+      const dbUsername = data[0].username || raw;
+
+      // به state اصلی برگردون
+      setUsername(dbUsername);
+
+      const payload =
+        data.length === 1
+          ? {
+              mode: "single",
+              username: dbUsername,
+              topics: data,
+            }
+          : {
+              mode: "multi",
+              username: dbUsername,
+              topics: data,
+            };
+
+      onContinue?.(payload);
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setLoading(false);
+      setErrorMsg(
+        isFa
+          ? "یک خطای غیرمنتظره رخ داد. دوباره امتحان کن."
+          : "Unexpected error. Please try again."
+      );
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !loading) {
+      e.preventDefault();
+      handleContinue();
+    }
+  };
 
   return (
     <div
@@ -20,39 +114,26 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
         backgroundRepeat: "no-repeat",
       }}
     >
-        
-      {/* کانتینر ماهواره: مسئول حرکت مداری */}
+      {/* کانتینر ماهواره */}
       <div
         className="absolute top-1/2 left-1/2 
                    -translate-x-1/2 -translate-y-1/2
                    animate-sat-orbit
-                   w-[360px] md:w-[430px]
-                   "
+                   w-[360px] md:w-[430px]"
       >
-        {/* خود ماهواره: مسئول چرخش ملایم پره‌ها */}
         <img
           src={satellite}
           alt="Research satellite"
-          className="w-full
-                     opacity-95
-                     drop-shadow-[0_0_35px_rgba(255,255,255,0.45)]
-                     animate-sat-spin"
+          className="w-full opacity-95 drop-shadow-[0_0_35px_rgba(255,255,255,0.45)] animate-sat-spin"
         />
-
-        {/* نور قرمز چشمک‌زن – چسبیده به بدنه/آنتن */}
         <div
           className="satellite-beacon"
-          style={{
-            // نسبت به کانتینر (خود ماهواره) تنظیم شده
-            top: "18%", // ارتفاع تقریبی نوک میله
-            left: "52%", // کمی متمایل به راست
-          }}
+          style={{ top: "18%", left: "52%" }}
         />
       </div>
 
       {/* باکس ورودی */}
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-3 px-4">
-        {/* input + ادامه */}
+      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-2.5 px-4">
         <div
           className="w-full flex items-center gap-2 
                      bg-slate-900/60 backdrop-blur-md 
@@ -62,7 +143,11 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
           <input
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              if (errorMsg) setErrorMsg("");
+            }}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className={`flex-1 bg-transparent outline-none 
                         text-sm md:text-base placeholder:text-slate-300 
@@ -70,20 +155,30 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
           />
 
           <button
-            onClick={() => onContinue?.()}
-            className="px-4 md:px-5 py-1.5 rounded-full 
-                       bg-sky-400 hover:bg-sky-300 
+            onClick={handleContinue}
+            disabled={loading}
+            className={`px-4 md:px-5 py-1.5 rounded-full 
                        text-xs md:text-sm font-semibold 
-                       shadow-lg shadow-sky-500/40 transition"
+                       shadow-lg shadow-sky-500/40 transition
+                       ${
+                         loading
+                           ? "bg-sky-300/70 cursor-wait"
+                           : "bg-sky-400 hover:bg-sky-300"
+                       }`}
           >
             {continueText}
           </button>
         </div>
 
-        {/* دکمه بازگشت */}
+        {errorMsg && (
+          <div className="w-full text-[11px] md:text-xs text-rose-300 text-center">
+            {errorMsg}
+          </div>
+        )}
+
         <button
           onClick={onBack}
-          className="px-4 md:px-5 py-1.5 rounded-full 
+          className="mt-1 px-4 md:px-5 py-1.5 rounded-full 
                      bg-sky-400 hover:bg-sky-300 
                      text-xs md:text-sm font-semibold 
                      shadow-lg shadow-sky-500/40 transition"

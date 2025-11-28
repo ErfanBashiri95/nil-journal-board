@@ -30,11 +30,20 @@ const starAnimationStyle = `
 }
 `;
 
-export default function JournalTopicBoard() {
+export default function JournalTopicBoard({
+  isFa,
+  username,
+  topicId,
+  topicTitle,
+  onBack = () => {},
+  onExit = () => {},
+}) {
   const [activeId, setActiveId] = useState("text");
 
-  // بعداً این رو از URL/props/state پر کن
-  const topicName = "تاپیک انتخاب‌شده";
+  // ✅ اسم تاپیک از props می‌آید، اگر نبود پیش‌فرض
+  const topicName =
+    (topicTitle && topicTitle.trim()) ||
+    (isFa ? "تاپیک انتخاب‌شده" : "Selected topic");
 
   const [filesBySection, setFilesBySection] = useState({
     text: [],
@@ -206,7 +215,6 @@ export default function JournalTopicBoard() {
 
   const getFileIcon = (file, sectionId) => {
     if (sectionId === "audio") {
-      // 🎧 برای همه فایل‌های صوتی
       return "🎧";
     }
     if (sectionId === "media") {
@@ -341,7 +349,7 @@ export default function JournalTopicBoard() {
           <div
             onDrop={(e) => handleDrop(e, "audio")}
             onDragOver={handleDragOver}
-            className="mt-1 rounded-xl border border-emerald-500/60 border-dashed bg-emerald-500/5 hover:bg-emerald-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
+            className="mt-1 rounded-xl border border-emerald-500/60 border-dashed bg-emerald-500/5 hover:bg-emerald-500/10 transition px-3 py-3 flex flex.col gap-2 items-center justify-center text-center"
           >
             <p className="text-[10px] md:text-xs text-slate-200">
               فایل‌های صوتی را اینجا بکش و رها کن
@@ -494,7 +502,7 @@ export default function JournalTopicBoard() {
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditNote(n)}
-                                  className="px-2 py-0.5 rounded_full bg-sky-500/80 hover:bg-sky-400 text-[9px] text-slate-950"
+                                  className="px-2 py-0.5 rounded-full bg-sky-500/80 hover:bg-sky-400 text-[9px] text-slate-950"
                                 >
                                   ویرایش
                                 </button>
@@ -558,6 +566,7 @@ export default function JournalTopicBoard() {
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
+      dir={isFa ? "rtl" : "ltr"}
     >
       <style>{`
         @media (max-width: 640px) {
@@ -573,6 +582,18 @@ export default function JournalTopicBoard() {
             background-repeat: no-repeat !important;
             width: 100% !important;
             height: 100% !important;
+          }
+
+          /* ❗ مانیتور روی موبایل اسکرول نداشته باشد */
+          .journal-monitor {
+            overflow: hidden !important;
+          }
+
+          /* 🔹 فقط پنل محتوا روی موبایل اسکرول داشته باشد */
+          .panel-scroll {
+            max-height: 50vh;
+            overflow-y: auto;
+            overflow-x: hidden;
           }
         }
 
@@ -613,11 +634,12 @@ export default function JournalTopicBoard() {
         ))}
       </div>
 
-      <div className="absolute inset-0 flex items-end justify-center pb-[11vh]">
+      <div className="absolute inset-0 flex items-end justify.center pb-[11vh]">
         <div
           className="
             absolute
             overflow-hidden
+            journal-monitor
             bg-slate-900/30
             backdrop-blur-[2px]
             border border-white/10
@@ -628,16 +650,13 @@ export default function JournalTopicBoard() {
             top-[23.4%]
             bottom-[12.9%]
 
-            max-sm:left-[0.5%]
-            max-sm:right-[0.5%]
-            max-sm:top-[29.3%]
-            max-sm:bottom-[39.5%]
+            max-sm:left-[0.2%]
+            max-sm:right-[0.2%]
+            max-sm:top-[26.6%]
+            max-sm:bottom-[26.5%]
           "
         >
-          <div
-            dir="rtl"
-            className="w-full h-full flex flex-col px-3 py-3 md:px-5 md:py-4 text-slate-50 text-xs md:text-sm"
-          >
+          <div className="w-full h-full flex flex-col px-3 py-3 md:px-5 md:py-4 text-slate-50 text-xs md:text-sm">
             {/* هدر */}
             <div className="flex items-center justify-between gap-2 mb-2 md:mb-3">
               <div className="flex items-center gap-1.5">
@@ -661,13 +680,13 @@ export default function JournalTopicBoard() {
                       key={sec.id}
                       type="button"
                       onClick={() => setActiveId(sec.id)}
-                      className={`group flex flex-col items-start justify-between rounded-2xl border px-2.5 py-2.5 md:px-3.5 md:py-3 text-right transition-all duration-200 ${
+                      className={`group flex flex-col items-start justify-between rounded-2xl border px-2 py-1.5 md:px-3.5 md:py-3 text-right transition-all duration-200 ${
                         active
                           ? "border-sky-400 bg-sky-400/15 shadow-[0_0_18px_rgba(56,189,248,0.45)] scale-[1.02]"
                           : "border-slate-600/70 bg-slate-900/70 hover:border-sky-400/70 hover:bg-slate-900"
                       }`}
                     >
-                      <span className="text-[11px] md:text-sm font-semibold line-clamp-1">
+                      <span className="text-[10px] md:text-sm font-semibold leading-tight line-clamp-2">
                         {sec.title}
                       </span>
                     </button>
@@ -676,19 +695,29 @@ export default function JournalTopicBoard() {
               </div>
 
               {/* پنل محتوا */}
-              <div className="flex-1 min-h-0 rounded-2xl bg-slate-950/50 border border-slate-600/60 px-3 py-3 md:px-4 md:py-4 flex flex-col gap-2 overflow-hidden">
+              <div className="flex-1 min-h-0 rounded-2xl bg-slate-950/50 border border-slate-600/60 px-3 py-3 md:px-4 md:py-4 flex flex-col gap-2 overflow-hidden panel-scroll">
                 {renderPanel()}
               </div>
             </div>
 
-            {/* دکمه بازگشت */}
-            <div className="mt-2 flex justify-start">
+            {/* دکمه‌های پایین */}
+            <div className="mt-2 flex justify-between items-center gap-2">
+              {/* خروج کامل به صفحه لاگین ژورنال */}
               <button
                 type="button"
-                onClick={() => window.history.back()}
+                onClick={onExit}
+                className="px-3 py-1.5 rounded-full border border-rose-500/80 bg-rose-600/80 text-[10px] md:text-xs text-slate-50 hover:bg-rose-500 hover:border-rose-300 transition"
+              >
+                {isFa ? "خروج از ژورنال" : "Exit journal"}
+              </button>
+
+              {/* برگشت به صفحه قبل (لیست تاپیک‌ها) */}
+              <button
+                type="button"
+                onClick={onBack}
                 className="px-3 py-1.5 rounded-full border border-slate-500/80 bg-slate-900/70 text-[10px] md:text-xs text-slate-100 hover:bg-slate-800 hover:border-sky-400 transition"
               >
-                بازگشت به صفحه قبل
+                {isFa ? "بازگشت به صفحه قبل" : "Back to topics"}
               </button>
             </div>
           </div>

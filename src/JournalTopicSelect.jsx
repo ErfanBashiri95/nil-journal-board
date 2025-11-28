@@ -1,21 +1,12 @@
 import bgEarth from "./assets/journal-bg-base.jpg";
 
-function JournalTopicSelect({ isFa, username, onBack, onOpenTopic }) {
+function JournalTopicSelect({ isFa, username, topics = [], onBack, onOpenTopic }) {
   const title = isFa ? "تاپیک‌های تحقیقاتی شما" : "Your Research Topics";
   const subtitle = isFa
     ? "یکی از تاپیک‌هایی را که برای مسیر نخبگی انتخاب کرده‌ای، انتخاب کن."
     : "Choose one of your selected topics to enter its research board.";
 
-  // فعلاً تا وقتی بک‌اند نداریم، دو تا تاپیک نمونه:
-  const topics = isFa
-    ? [
-        { id: "t1", label: "تاپیک ۱", desc: "" },
-        { id: "t2", label: "تاپیک ۲", desc: "" },
-      ]
-    : [
-        { id: "t1", label: "Topic 1", desc: "e.g. Financial Awareness" },
-        { id: "t2", label: "Topic 2", desc: "e.g. Orbit of Empathy" },
-      ];
+  const hasTopics = topics && topics.length > 0;
 
   return (
     <div
@@ -26,6 +17,7 @@ function JournalTopicSelect({ isFa, username, onBack, onOpenTopic }) {
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
+      dir={isFa ? "rtl" : "ltr"}
     >
       {/* لایه تیره خیلی ملایم برای خوانایی متن */}
       <div className="absolute inset-0 bg-slate-950/30" />
@@ -49,32 +41,37 @@ function JournalTopicSelect({ isFa, username, onBack, onOpenTopic }) {
         </div>
 
         {/* کارت‌های تاپیک‌ها */}
-        <div className="w-full flex flex-col md:flex-row items-stretch justify-center gap-6 md:gap-10">
-          {topics.map((topic) => (
-            <button
-              key={topic.id}
-              onClick={() => onOpenTopic?.(topic.id)}
-              className="flex-1 max-w-sm text-left md:text-right
-                         bg-slate-900/60 backdrop-blur-md
-                         border border-white/15
-                         rounded-2xl px-5 py-4 md:px-7 md:py-6
-                         shadow-xl hover:shadow-2xl
-                         hover:-translate-y-1
-                         transition
-                         flex flex-col gap-2"
-            >
-              <span className="text-xs uppercase tracking-[0.18em] text-sky-300">
-                {isFa ? "NIL JOURNAL TOPIC" : "NIL JOURNAL TOPIC"}
-              </span>
-              <h2 className="text-xl md:text-2xl font-semibold drop-shadow-[0_0_10px_rgba(0,0,0,0.75)]">
-                {topic.label}
-              </h2>
-              <p className="text-xs md:text-sm opacity-85">
-                {topic.desc}
-              </p>
-            </button>
-          ))}
-        </div>
+        {hasTopics ? (
+          <div className="w-full flex flex-col md:flex-row items-stretch justify-center gap-6 md:gap-10">
+            {topics.map((topic) => (
+              <button
+                key={topic.id}
+                onClick={() => onOpenTopic?.(topic.id)}
+                className="flex-1 max-w-sm text-right
+                           bg-slate-900/60 backdrop-blur-md
+                           border border-white/15
+                           rounded-2xl px-5 py-4 md:px-7 md:py-6
+                           shadow-xl hover:shadow-2xl
+                           hover:-translate-y-1
+                           transition
+                           flex flex-col gap-2"
+              >
+                <span className="text-xs uppercase tracking-[0.18em] text-sky-300">
+                  NIL JOURNAL TOPIC
+                </span>
+                <h2 className="text-xl md:text-2xl font-semibold drop-shadow-[0_0_10px_rgba(0,0,0,0.75)] break-words">
+                  {topic.topic_title || (isFa ? "تاپیک تحقیقاتی" : "Research Topic")}
+                </h2>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs md:text-sm opacity-85 mt-4">
+            {isFa
+              ? "برای این نام کاربری فعلاً تاپیکی ثبت نشده."
+              : "No topics found for this username yet."}
+          </p>
+        )}
 
         {/* دکمه بازگشت */}
         <button
