@@ -7,12 +7,12 @@ export default defineConfig({
   preview: {
     allowedHosts: [
       "nil-journal.nilpapd.com",
-       // ← دامین Railway تو
+       
     ],
   },
 
   server: {
     host: true,
-    port: 5173,
+    port: 8080,
   },
 });
