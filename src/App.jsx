@@ -119,7 +119,7 @@ function App() {
     }
   
     .hub-card > div {
-      min-height: 320px !important; /* 🔥 مهم‌ترین خط */
+      min-height: 200px !important; /* 🔥 مهم‌ترین خط */
     }
   }
 
