@@ -46,7 +46,7 @@ function App() {
     return saved?.selectedTopicId || null;
   });
 
-  const title = "NIL Orbit Hub";
+  const title = "HELIX Orbit Hub";
   const subtitle = isFa
     ? "از اینجا وارد پلیر دوره‌ها و اتاق‌های تحقیقاتی خودت می‌شی."
     : "From here you access the course player and your research boards.";
