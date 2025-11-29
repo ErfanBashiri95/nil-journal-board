@@ -15,7 +15,7 @@ const STAR_POSITIONS = [
 const SECTIONS = [
   { id: "text", title: "فایل‌های متنی" },
   { id: "audio", title: "فایل‌های صوتی / ویس" },
-  { id: "media", title: "گالری تصویر و ویدئو" },
+  { id: "media", title: "गالری تصویر و ویدئو" },
   { id: "notes", title: "نوت‌های تحقیق" },
 ];
 
@@ -62,20 +62,21 @@ export default function JournalTopicBoard({
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // 🔹 ref برای اسکرول لیست فایل‌ها
+  // 🔹 ref برای لیست فایل‌های بخش فعال
   const filesScrollRef = useRef(null);
 
-  // 🔹 هر تغییری در فایل‌های هر بخش → روی موبایل اسکرول لیست فایل‌ها بره پایین
+  // 🔹 بعد از هر تغییر در فایل‌ها (در تب فعال)، روی موبایل اسکرول لیست فایل‌ها تا ته برود
   useEffect(() => {
     if (typeof window === "undefined") return;
     const el = filesScrollRef.current;
     if (!el) return;
 
-    // فقط روی موبایل (عرض <= 640px)
-    if (window.innerWidth > 640) return;
+    if (window.innerWidth > 640) return; // فقط موبایل
 
-    // بفرست پایین
-    el.scrollTop = el.scrollHeight;
+    // کمی صبر می‌کنیم تا DOM رندر کامل شود
+    setTimeout(() => {
+      el.scrollTop = el.scrollHeight;
+    }, 0);
   }, [filesBySection, activeId]);
 
   const handleAddFiles = (sectionId, fileList) => {
@@ -276,15 +277,14 @@ export default function JournalTopicBoard({
 
     return (
       <div
-        className="mt-2 max-h-36 md:max-h-40 overflow-auto pr-1 pb-2 scroll-area"
-        // 🔹 فقط لیست بخش فعال ref بگیرد، برای auto-scroll
+        className="mt-2 max-h-36 md:max-h-40 overflow-auto pr-1 pb-2 scroll-area mobile-files"
         ref={sectionId === activeId ? filesScrollRef : null}
       >
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
           {items.map((f) => (
             <div
               key={f.id}
-              className="flex flex-col items-center justify-start text.center cursor-default select-none"
+              className="flex flex-col items-center justify-start text-center cursor-default select-none"
               onContextMenu={(e) => {
                 e.preventDefault();
                 handleFileRename(sectionId, f);
@@ -390,13 +390,13 @@ export default function JournalTopicBoard({
               <button
                 type="button"
                 onClick={isRecording ? stopRecording : startRecording}
-                className={`inline-flex items.center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${
                   isRecording
                     ? "border-red-400 bg-red-500/20 text-red-100"
                     : "border-red-400/70 bg-red-400/10 text-red-100 hover:bg-red-400/20"
                 }`}
               >
-                <span className="h-2 w-2 rounded.full bg-red-400 animate-pulse" />
+                <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
                 {isRecording ? "توقف ضبط" : "شروع ضبط ویس"}
               </button>
             </div>
@@ -492,7 +492,7 @@ export default function JournalTopicBoard({
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-col gap-0.5">
-                            <div className="text-[10px] md.text-xs font-semibold text-sky-300">
+                            <div className="text-[10px] md:text-xs font-semibold text-sky-300">
                               {n.title || "نوت بدون عنوان"}
                             </div>
                             <div className="text-[9px] text-slate-500">
@@ -522,7 +522,7 @@ export default function JournalTopicBoard({
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditNote(n)}
-                                  className="px-2 py-0.5 rounded-full bg-sky-500/80 hover.bg-sky-400 text-[9px] text-slate-950"
+                                  className="px-2 py-0.5 rounded-full bg-sky-500/80 hover:bg-sky-400 text-[9px] text-slate-950"
                                 >
                                   ویرایش
                                 </button>
@@ -609,11 +609,16 @@ export default function JournalTopicBoard({
             overflow: hidden !important;
           }
 
-          /* فقط پنل محتوا روی موبایل اسکرول داشته باشد */
+          /* فقط پنل محتوا روی موبایل اسکرول داشته باشد و کمی بلندتر شود */
           .panel-scroll {
-            max-height: 50vh;
+            max-height: 60vh;
             overflow-y: auto;
             overflow-x: hidden;
+          }
+
+          /* لیست فایل‌ها روی موبایل بلندتر شود تا آیتم‌ها کامل دیده شوند */
+          .mobile-files {
+            max-height: 55vh !important;
           }
         }
 
@@ -667,8 +672,8 @@ export default function JournalTopicBoard({
 
             left-[15.5%]
             right-[15.4%]
-            top-[23.4%]
-            bottom-[12.9%]
+            top-[22.8%]
+            bottom-[12%]
 
             max-sm:left-[0.2%]
             max-sm:right-[0.2%]
