@@ -40,7 +40,6 @@ export default function JournalTopicBoard({
 }) {
   const [activeId, setActiveId] = useState("text");
 
-  // ✅ اسم تاپیک از props می‌آید، اگر نبود پیش‌فرض
   const topicName =
     (topicTitle && topicTitle.trim()) ||
     (isFa ? "تاپیک انتخاب‌شده" : "Selected topic");
@@ -309,15 +308,15 @@ export default function JournalTopicBoard({
   const renderPanel = () => {
     if (activeId === "text") {
       return (
-        <>
-          <h2 className="text-sm md:text-base font-semibold mb-1">
+        <div className="flex-1 min-h-0 flex flex-col gap-2">
+          <h2 className="text-sm md:text-base font-semibold">
             فایل‌های متنی
           </h2>
 
           <div
             onDrop={(e) => handleDrop(e, "text")}
             onDragOver={handleDragOver}
-            className="mt-1 rounded-xl border border-sky-500/60 border-dashed bg-sky-500/5 hover:bg-sky-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
+            className="rounded-xl border border-sky-500/60 border-dashed bg-sky-500/5 hover:bg-sky-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
           >
             <p className="text-[10px] md:text-xs text-slate-200">
               فایل‌های متنی را اینجا بکش و رها کن
@@ -335,21 +334,21 @@ export default function JournalTopicBoard({
           </div>
 
           {renderFilesGrid("text")}
-        </>
+        </div>
       );
     }
 
     if (activeId === "audio") {
       return (
-        <>
-          <h2 className="text-sm md:text-base font-semibold mb-1">
+        <div className="flex-1 min-h-0 flex flex-col gap-2">
+          <h2 className="text-sm md:text-base font-semibold">
             فایل‌های صوتی / ویس
           </h2>
 
           <div
             onDrop={(e) => handleDrop(e, "audio")}
             onDragOver={handleDragOver}
-            className="mt-1 rounded-xl border border-emerald-500/60 border-dashed bg-emerald-500/5 hover:bg-emerald-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
+            className="rounded-xl border border-emerald-500/60 border-dashed bg-emerald-500/5 hover:bg-emerald-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
           >
             <p className="text-[10px] md:text-xs text-slate-200">
               فایل‌های صوتی را اینجا بکش و رها کن
@@ -383,21 +382,21 @@ export default function JournalTopicBoard({
           </div>
 
           {renderFilesGrid("audio")}
-        </>
+        </div>
       );
     }
 
     if (activeId === "media") {
       return (
-        <>
-          <h2 className="text-sm md:text-base font-semibold mb-1">
+        <div className="flex-1 min-h-0 flex flex-col gap-2">
+          <h2 className="text-sm md:text-base font-semibold">
             گالری تصویر و ویدئو
           </h2>
 
           <div
             onDrop={(e) => handleDrop(e, "media")}
             onDragOver={handleDragOver}
-            className="mt-1 rounded-xl border border-fuchsia-500/70 border-dashed bg-fuchsia-500/5 hover:bg-fuchsia-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
+            className="rounded-xl border border-fuchsia-500/70 border-dashed bg-fuchsia-500/5 hover:bg-fuchsia-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
           >
             <p className="text-[10px] md:text-xs text-slate-200">
               عکس‌ها و ویدئوها را اینجا بکش و رها کن
@@ -415,142 +414,138 @@ export default function JournalTopicBoard({
           </div>
 
           {renderFilesGrid("media")}
-        </>
+        </div>
       );
     }
 
     if (activeId === "notes") {
       return (
-        <>
-          <h2 className="text-sm md:text-base font-semibold mb-1">
+        <div className="flex-1 min-h-0 flex flex-col gap-2">
+          <h2 className="text-sm md:text-base font-semibold">
             نوت‌های تحقیق
           </h2>
-          <p className="text-[10px] md:text-xs text-slate-300 mb-1.5">
+          <p className="text-[10px] md:text-xs text-slate-300">
             اینجا می‌تونی متن، ایده‌ها و لینک‌های مهم (مقاله، ویدئو، سایت‌ها)
             رو برای این تاپیک ذخیره کنی.
           </p>
 
-          {/* 🔹 کل پنل نوت‌ها اسکرول‌بار دارد */}
-          <div className="flex-1 min-h-0 scroll-area overflow-auto pr-1">
-            <div className="flex flex-col gap-2 pb-3">
-              {/* عنوان نوت */}
-              <input
-                type="text"
-                value={noteTitle}
-                onChange={(e) => setNoteTitle(e.target.value)}
-                placeholder="عنوان نوت (مثلاً: منابع اصلی تحقیق)"
-                className="w-full rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-1.5 text-[11px] md:text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-400"
-              />
+          {/* کل این بخش اسکرول می‌شود (خود پنل-scroll والدِ این div است) */}
+          <div className="flex-1 min-h-0 flex flex-col gap-2">
+            <input
+              type="text"
+              value={noteTitle}
+              onChange={(e) => setNoteTitle(e.target.value)}
+              placeholder="عنوان نوت (مثلاً: منابع اصلی تحقیق)"
+              className="w-full rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-1.5 text-[11px] md:text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-400"
+            />
 
-              {/* متن نوت با اسکرول‌بار مخصوص خودش */}
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder=""
-                className="w-full min-h-[110px] md:min-h-[140px] rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-2 text-[11px] md:text-xs text-slate-100 resize-none focus:outline-none focus:ring-1 focus:ring-sky-400 scroll-area overflow-auto"
-              />
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder=""
+              className="w-full min-h-[110px] md:min-h-[140px] rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-2 text-[11px] md:text-xs text-slate-100 resize-none focus:outline-none focus:ring-1 focus:ring-sky-400 scroll-area overflow-auto"
+            />
 
-              <div className="flex items-center justify-between text-[10px] md:text-xs text-slate-400">
-                <span>کاراکترها: {noteText.length} (بدون محدودیت)</span>
-                <button
-                  type="button"
-                  onClick={handleSaveNote}
-                  className="px-3 py-1 rounded-full bg-sky-500/85 hover:bg-sky-400 text-slate-950 font-semibold transition"
-                >
-                  ذخیره نوت
-                </button>
-              </div>
+            <div className="flex items-center justify-between text-[10px] md:text-xs text-slate-400">
+              <span>کاراکترها: {noteText.length} (بدون محدودیت)</span>
+              <button
+                type="button"
+                onClick={handleSaveNote}
+                className="px-3 py-1 rounded-full bg-sky-500/85 hover:bg-sky-400 text-slate-950 font-semibold transition"
+              >
+                ذخیره نوت
+              </button>
+            </div>
 
-              {notesList.length > 0 && (
-                <div className="mt-1 space-y-1.5 text-[10px] md:text-xs text-slate-100">
-                  {notesList.map((n) => {
-                    const isEditing = editingNoteId === n.id;
-                    return (
-                      <div
-                        key={n.id}
-                        className="rounded-lg bg-slate-900/70 border border-slate-700/80 px-2 py-1.5 flex flex-col gap-1"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex flex-col gap-0.5">
-                            <div className="text-[10px] md:text-xs font-semibold text-sky-300">
-                              {n.title || "نوت بدون عنوان"}
-                            </div>
-                            <div className="text-[9px] text-slate-500">
-                              {new Date(n.createdAt).toLocaleString("fa-IR")}
-                            </div>
+            {notesList.length > 0 && (
+              <div className="mt-1 space-y-1.5 text-[10px] md:text-xs text-slate-100">
+                {notesList.map((n) => {
+                  const isEditing = editingNoteId === n.id;
+                  return (
+                    <div
+                      key={n.id}
+                      className="rounded-lg bg-slate-900/70 border border-slate-700/80 px-2 py-1.5 flex flex-col gap-1"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="text-[10px] md:text-xs font-semibold text-sky-300">
+                            {n.title || "نوت بدون عنوان"}
                           </div>
-                          <div className="flex items-center gap-1">
-                            {isEditing ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={handleSaveEditNote}
-                                  className="px-2 py-0.5 rounded-full bg-emerald-500/80 hover:bg-emerald-400 text-[9px] text-slate-950"
-                                >
-                                  ذخیره
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleCancelEditNote}
-                                  className="px-2 py-0.5 rounded-full bg-slate-700/80 hover:bg-slate-600 text-[9px]"
-                                >
-                                  انصراف
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartEditNote(n)}
-                                  className="px-2 py-0.5 rounded-full bg-sky-500/80 hover:bg-sky-400 text-[9px] text-slate-950"
-                                >
-                                  ویرایش
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteNote(n.id)}
-                                  className="px-2 py-0.5 rounded-full bg-rose-500/80 hover:bg-rose-400 text-[9px] text-slate-950"
-                                >
-                                  حذف
-                                </button>
-                              </>
-                            )}
+                          <div className="text-[9px] text-slate-500">
+                            {new Date(n.createdAt).toLocaleString("fa-IR")}
                           </div>
                         </div>
-
-                        {isEditing ? (
-                          <div className="flex flex-col gap-1 mt-1">
-                            <input
-                              type="text"
-                              value={editingNoteTitle}
-                              onChange={(e) =>
-                                setEditingNoteTitle(e.target.value)
-                              }
-                              className="w-full rounded-md bg-slate-950/80 border border-slate-600/80 px-2 py-1 text-[10px] text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-400"
-                              placeholder="عنوان نوت"
-                            />
-                            <textarea
-                              value={editingNoteText}
-                              onChange={(e) =>
-                                setEditingNoteText(e.target.value)
-                              }
-                              className="w-full rounded-md bg-slate-950/80 border border-slate-600/80 px-2 py-1 text-[10px] text-slate-100 resize-none focus:outline-none focus:ring-1 focus:ring-sky-400"
-                              rows={3}
-                            />
-                          </div>
-                        ) : (
-                          <div className="whitespace-pre-wrap break-words mt-1">
-                            {n.content}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleSaveEditNote}
+                                className="px-2 py-0.5 rounded-full bg-emerald-500/80 hover:bg-emerald-400 text-[9px] text-slate-950"
+                              >
+                                ذخیره
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEditNote}
+                                className="px-2 py-0.5 rounded-full bg-slate-700/80 hover:bg-slate-600 text-[9px]"
+                              >
+                                انصراف
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditNote(n)}
+                                className="px-2 py-0.5 rounded-full bg-sky-500/80 hover:bg-sky-400 text-[9px] text-slate-950"
+                              >
+                                ویرایش
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteNote(n.id)}
+                                className="px-2 py-0.5 rounded-full bg-rose-500/80 hover:bg-rose-400 text-[9px] text-slate-950"
+                              >
+                                حذف
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+
+                      {isEditing ? (
+                        <div className="flex flex-col gap-1 mt-1">
+                          <input
+                            type="text"
+                            value={editingNoteTitle}
+                            onChange={(e) =>
+                              setEditingNoteTitle(e.target.value)
+                            }
+                            className="w-full rounded-md bg-slate-950/80 border border-slate-600/80 px-2 py-1 text-[10px] text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                            placeholder="عنوان نوت"
+                          />
+                          <textarea
+                            value={editingNoteText}
+                            onChange={(e) =>
+                              setEditingNoteText(e.target.value)
+                            }
+                            className="w-full rounded-md bg-slate-950/80 border border-slate-600/80 px-2 py-1 text-[10px] text-slate-100 resize-none focus:outline-none focus:ring-1 focus:ring-sky-400"
+                            rows={3}
+                          />
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-wrap break-words mt-1">
+                          {n.content}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </>
+        </div>
       );
     }
 
@@ -584,19 +579,20 @@ export default function JournalTopicBoard({
             height: 100% !important;
           }
 
-          /* ❗ مانیتور روی موبایل اسکرول نداشته باشد */
           .journal-monitor {
             overflow: hidden !important;
           }
 
-          /* 🔹 فقط پنل محتوا روی موبایل اسکرول داشته باشد (بدون محدودیت vh) */
+          /* پنل محتوا روی موبایل: ارتفاع محدود + اسکرول */
           .panel-scroll {
+            max-height: calc(100vh - 220px);
             overflow-y: auto;
             overflow-x: hidden;
           }
         }
 
-        /* 🔹 روی موبایل، برای لیست فایل‌ها max-height نگذار (بذار داخل پنل scroll بخورد) */
+        /* روی موبایل، خود لیست فایل‌ها افزایش ارتفاع می‌دهد
+           و اسکرول اصلی با پنل انجام می‌شود */
         @media (max-width: 640px) {
           .files-container {
             max-height: none !important;
@@ -653,8 +649,8 @@ export default function JournalTopicBoard({
 
             left-[15.5%]
             right-[15.4%]
-            top-[22%]
-            bottom-[11%]
+            top-[21.6%]
+            bottom-[10.6%]
 
             max-sm:left-[0.2%]
             max-sm:right-[0.2%]
@@ -677,7 +673,7 @@ export default function JournalTopicBoard({
 
             {/* بدنه */}
             <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
-              {/* ستون بخش‌ها (باریک‌تر) */}
+              {/* ستون بخش‌ها */}
               <div className="md:w-[32%] grid grid-cols-2 md:grid-cols-1 gap-2 md:gap-3">
                 {SECTIONS.map((sec) => {
                   const active = sec.id === activeId;
@@ -708,7 +704,6 @@ export default function JournalTopicBoard({
 
             {/* دکمه‌های پایین */}
             <div className="mt-2 flex justify-between items-center gap-2">
-              {/* خروج کامل به صفحه لاگین ژورنال */}
               <button
                 type="button"
                 onClick={onExit}
@@ -717,7 +712,6 @@ export default function JournalTopicBoard({
                 {isFa ? "خروج از ژورنال" : "Exit journal"}
               </button>
 
-              {/* برگشت به صفحه قبل (لیست تاپیک‌ها) */}
               <button
                 type="button"
                 onClick={onBack}
