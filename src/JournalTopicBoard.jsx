@@ -670,10 +670,10 @@ export default function JournalTopicBoard({
             top-[23.4%]
             bottom-[12.9%]
 
-            max-sm:left-[0.5%]
-            max-sm:right-[0.5%]
-            max-sm:top-[29.3%]
-            max-sm:bottom-[39.5%]
+            max-sm:left-[0.2%]
+            max-sm:right-[0.2%]
+            max-sm:top-[26.8%]
+            max-sm:bottom-[26.6%]
           "
         >
           <div className="w-full h-full flex flex-col px-3 py-3 md:px-5 md:py-4 text-slate-50 text-xs md:text-sm">
