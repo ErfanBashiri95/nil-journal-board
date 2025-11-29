@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import deskBgDesktop from "./assets/journal-desk-bg.jpg";
 import deskBgMobile from "./assets/journal-desk-bg-mobile.jpg";
 
@@ -61,6 +61,22 @@ export default function JournalTopicBoard({
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+
+  // 🔹 ref برای اسکرول لیست فایل‌ها
+  const filesScrollRef = useRef(null);
+
+  // 🔹 هر تغییری در فایل‌های هر بخش → روی موبایل اسکرول لیست فایل‌ها بره پایین
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = filesScrollRef.current;
+    if (!el) return;
+
+    // فقط روی موبایل (عرض <= 640px)
+    if (window.innerWidth > 640) return;
+
+    // بفرست پایین
+    el.scrollTop = el.scrollHeight;
+  }, [filesBySection, activeId]);
 
   const handleAddFiles = (sectionId, fileList) => {
     const newFiles = Array.from(fileList || []);
@@ -258,14 +274,17 @@ export default function JournalTopicBoard({
       );
     }
 
-    // 🔹 این قسمت حالا خودش اسکرول کامل دارد (بدون محدودیت ارتفاع کوچک)
     return (
-      <div className="mt-2 overflow-auto pr-1 pb-2 scroll-area">
+      <div
+        className="mt-2 max-h-36 md:max-h-40 overflow-auto pr-1 pb-2 scroll-area"
+        // 🔹 فقط لیست بخش فعال ref بگیرد، برای auto-scroll
+        ref={sectionId === activeId ? filesScrollRef : null}
+      >
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
           {items.map((f) => (
             <div
               key={f.id}
-              className="flex flex-col items-center justify-start text-center cursor-default select-none"
+              className="flex flex-col items-center justify-start text.center cursor-default select-none"
               onContextMenu={(e) => {
                 e.preventDefault();
                 handleFileRename(sectionId, f);
@@ -371,13 +390,13 @@ export default function JournalTopicBoard({
               <button
                 type="button"
                 onClick={isRecording ? stopRecording : startRecording}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${
+                className={`inline-flex items.center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${
                   isRecording
                     ? "border-red-400 bg-red-500/20 text-red-100"
                     : "border-red-400/70 bg-red-400/10 text-red-100 hover:bg-red-400/20"
                 }`}
               >
-                <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
+                <span className="h-2 w-2 rounded.full bg-red-400 animate-pulse" />
                 {isRecording ? "توقف ضبط" : "شروع ضبط ویس"}
               </button>
             </div>
@@ -403,7 +422,7 @@ export default function JournalTopicBoard({
             <p className="text-[10px] md:text-xs text-slate-200">
               عکس‌ها و ویدئوها را اینجا بکش و رها کن
             </p>
-            <label className="inline-flex items.center gap-2 rounded-full border border-fuchsia-400/70 bg-fuchsia-400/15 px-3 py-1.5 text-[10px] md:text-xs cursor-pointer hover:bg-fuchsia-400/25 transition">
+            <label className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/70 bg-fuchsia-400/15 px-3 py-1.5 text-[10px] md:text-xs cursor-pointer hover:bg-fuchsia-400/25 transition">
               <input
                 type="file"
                 multiple
@@ -431,8 +450,8 @@ export default function JournalTopicBoard({
             رو برای این تاپیک ذخیره کنی.
           </p>
 
-          {/* 🔹 کانتینر اسکرول برای کل محتوای نوت‌ها */}
-          <div className="flex-1 min-h-0 overflow-auto pr-1 scroll-area">
+          {/* 🔹 کل پنل نوت‌ها اسکرول‌بار دارد */}
+          <div className="flex-1 min-h-0 scroll-area overflow-auto pr-1">
             <div className="flex flex-col gap-2 pb-3">
               {/* عنوان نوت */}
               <input
@@ -443,7 +462,7 @@ export default function JournalTopicBoard({
                 className="w-full rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-1.5 text-[11px] md:text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-400"
               />
 
-              {/* متن نوت با اسکرول خودش */}
+              {/* متن نوت با اسکرول‌بار مخصوص خودش */}
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
@@ -463,7 +482,7 @@ export default function JournalTopicBoard({
               </div>
 
               {notesList.length > 0 && (
-                <div className="mt-1 space-y-1.5 text-[10px] md:text-xs text-slate-100 max-h-40 overflow-auto pr-1 scroll-area">
+                <div className="mt-1 space-y-1.5 text-[10px] md:text-xs text-slate-100">
                   {notesList.map((n) => {
                     const isEditing = editingNoteId === n.id;
                     return (
@@ -473,7 +492,7 @@ export default function JournalTopicBoard({
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-col gap-0.5">
-                            <div className="text-[10px] md:text-xs font-semibold text-sky-300">
+                            <div className="text-[10px] md.text-xs font-semibold text-sky-300">
                               {n.title || "نوت بدون عنوان"}
                             </div>
                             <div className="text-[9px] text-slate-500">
@@ -503,7 +522,7 @@ export default function JournalTopicBoard({
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditNote(n)}
-                                  className="px-2 py-0.5 rounded-full bg-sky-500/80 hover:bg-sky-400 text-[9px] text-slate-950"
+                                  className="px-2 py-0.5 rounded-full bg-sky-500/80 hover.bg-sky-400 text-[9px] text-slate-950"
                                 >
                                   ویرایش
                                 </button>
@@ -585,16 +604,16 @@ export default function JournalTopicBoard({
             height: 100% !important;
           }
 
-          /* مانیتور روی موبایل اسکرول نداشته باشد */
+          /* مانیتور روی موبایل خودش اسکرول نداشته باشد */
           .journal-monitor {
             overflow: hidden !important;
           }
 
-          /* پنل محتوا روی موبایل اسکرول نرم داشته باشد */
+          /* فقط پنل محتوا روی موبایل اسکرول داشته باشد */
           .panel-scroll {
+            max-height: 50vh;
             overflow-y: auto;
             overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
           }
         }
 
@@ -651,10 +670,10 @@ export default function JournalTopicBoard({
             top-[23.4%]
             bottom-[12.9%]
 
-            max-sm:left-[0.2%]
-            max-sm:right-[0.2%]
-            max-sm:top-[26.7%]
-            max-sm:bottom-[26%]
+            max-sm:left-[0.5%]
+            max-sm:right-[0.5%]
+            max-sm:top-[29.3%]
+            max-sm:bottom-[39.5%]
           "
         >
           <div className="w-full h-full flex flex-col px-3 py-3 md:px-5 md:py-4 text-slate-50 text-xs md:text-sm">
@@ -672,7 +691,7 @@ export default function JournalTopicBoard({
 
             {/* بدنه */}
             <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
-              {/* ستون بخش‌ها */}
+              {/* ستون بخش‌ها (باریک‌تر) */}
               <div className="md:w-[32%] grid grid-cols-2 md:grid-cols-1 gap-2 md:gap-3">
                 {SECTIONS.map((sec) => {
                   const active = sec.id === activeId;
@@ -703,6 +722,7 @@ export default function JournalTopicBoard({
 
             {/* دکمه‌های پایین */}
             <div className="mt-2 flex justify-between items-center gap-2">
+              {/* خروج کامل به صفحه لاگین ژورنال */}
               <button
                 type="button"
                 onClick={onExit}
@@ -711,6 +731,7 @@ export default function JournalTopicBoard({
                 {isFa ? "خروج از ژورنال" : "Exit journal"}
               </button>
 
+              {/* برگشت به صفحه قبل (لیست تاپیک‌ها) */}
               <button
                 type="button"
                 onClick={onBack}
