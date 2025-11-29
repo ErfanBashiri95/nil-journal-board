@@ -40,6 +40,7 @@ export default function JournalTopicBoard({
 }) {
   const [activeId, setActiveId] = useState("text");
 
+  // ✅ اسم تاپیک از props می‌آید، اگر نبود پیش‌فرض
   const topicName =
     (topicTitle && topicTitle.trim()) ||
     (isFa ? "تاپیک انتخاب‌شده" : "Selected topic");
@@ -258,9 +259,8 @@ export default function JournalTopicBoard({
     }
 
     return (
-      <div className="mt-2 max-h-40 md:max-h-44 overflow-auto pr-1 pb-8 scroll-area">
+      <div className="mt-2 pr-1 pb-2 scroll-area files-grid-wrapper">
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
-    
           {items.map((f) => (
             <div
               key={f.id}
@@ -309,15 +309,15 @@ export default function JournalTopicBoard({
   const renderPanel = () => {
     if (activeId === "text") {
       return (
-        <div className="flex-1 min-h-0 flex flex-col gap-2">
-          <h2 className="text-sm md:text-base font-semibold">
+        <>
+          <h2 className="text-sm md:text-base font-semibold mb-1">
             فایل‌های متنی
           </h2>
 
           <div
             onDrop={(e) => handleDrop(e, "text")}
             onDragOver={handleDragOver}
-            className="rounded-xl border border-sky-500/60 border-dashed bg-sky-500/5 hover:bg-sky-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
+            className="mt-1 rounded-xl border border-sky-500/60 border-dashed bg-sky-500/5 hover:bg-sky-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
           >
             <p className="text-[10px] md:text-xs text-slate-200">
               فایل‌های متنی را اینجا بکش و رها کن
@@ -335,21 +335,21 @@ export default function JournalTopicBoard({
           </div>
 
           {renderFilesGrid("text")}
-        </div>
+        </>
       );
     }
 
     if (activeId === "audio") {
       return (
-        <div className="flex-1 min-h-0 flex flex-col gap-2">
-          <h2 className="text-sm md:text-base font-semibold">
+        <>
+          <h2 className="text-sm md:text-base font-semibold mb-1">
             فایل‌های صوتی / ویس
           </h2>
 
           <div
             onDrop={(e) => handleDrop(e, "audio")}
             onDragOver={handleDragOver}
-            className="rounded-xl border border-emerald-500/60 border-dashed bg-emerald-500/5 hover:bg-emerald-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
+            className="mt-1 rounded-xl border border-emerald-500/60 border-dashed bg-emerald-500/5 hover:bg-emerald-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
           >
             <p className="text-[10px] md:text-xs text-slate-200">
               فایل‌های صوتی را اینجا بکش و رها کن
@@ -383,21 +383,21 @@ export default function JournalTopicBoard({
           </div>
 
           {renderFilesGrid("audio")}
-        </div>
+        </>
       );
     }
 
     if (activeId === "media") {
       return (
-        <div className="flex-1 min-h-0 flex flex-col gap-2">
-          <h2 className="text-sm md:text-base font-semibold">
+        <>
+          <h2 className="text-sm md:text-base font-semibold mb-1">
             گالری تصویر و ویدئو
           </h2>
 
           <div
             onDrop={(e) => handleDrop(e, "media")}
             onDragOver={handleDragOver}
-            className="rounded-xl border border-fuchsia-500/70 border-dashed bg-fuchsia-500/5 hover:bg-fuchsia-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
+            className="mt-1 rounded-xl border border-fuchsia-500/70 border-dashed bg-fuchsia-500/5 hover:bg-fuchsia-500/10 transition px-3 py-3 flex flex-col gap-2 items-center justify-center text-center"
           >
             <p className="text-[10px] md:text-xs text-slate-200">
               عکس‌ها و ویدئوها را اینجا بکش و رها کن
@@ -415,13 +415,13 @@ export default function JournalTopicBoard({
           </div>
 
           {renderFilesGrid("media")}
-        </div>
+        </>
       );
     }
 
     if (activeId === "notes") {
       return (
-        <div className="flex-1 min-h-0 flex flex-col gap-2">
+        <>
           <h2 className="text-sm md:text-base font-semibold">
             نوت‌های تحقیق
           </h2>
@@ -430,8 +430,9 @@ export default function JournalTopicBoard({
             رو برای این تاپیک ذخیره کنی.
           </p>
 
-          {/* کل این بخش اسکرول می‌شود (خود پنل-scroll والدِ این div است) */}
-          <div className="flex-1 min-h-0 flex flex-col gap-2 scroll-area overflow-auto pr-1 md:max-h-[52vh]">
+          {/* 🔹 کل بخش نوت‌ها (از اینجا تا آخر) توسط panel-scroll اسکرول می‌شود */}
+          <div className="flex-1 min-h-0 flex flex-col gap-2">
+            {/* عنوان نوت */}
             <input
               type="text"
               value={noteTitle}
@@ -440,6 +441,7 @@ export default function JournalTopicBoard({
               className="w-full rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-1.5 text-[11px] md:text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-400"
             />
 
+            {/* متن نوت با اسکرول مخصوص خودش */}
             <textarea
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
@@ -546,7 +548,7 @@ export default function JournalTopicBoard({
               </div>
             )}
           </div>
-        </div>
+        </>
       );
     }
 
@@ -580,24 +582,23 @@ export default function JournalTopicBoard({
             height: 100% !important;
           }
 
+          /* مانیتور خودش اسکرول نداشته باشه؛ فقط پنل داخلی اسکرول شود */
           .journal-monitor {
             overflow: hidden !important;
           }
 
-          /* پنل محتوا روی موبایل: ارتفاع محدود + اسکرول */
-          .panel-scroll {
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling:touch;
+          /* روی موبایل، گرید فایل‌ها ارتفاع ثابت نداشته باشه تا کامل دیده بشه */
+          .files-grid-wrapper {
+            max-height: none !important;
+            overflow: visible !important;
           }
         }
 
-        /* روی موبایل، خود لیست فایل‌ها افزایش ارتفاع می‌دهد
-           و اسکرول اصلی با پنل انجام می‌شود */
-        @media (max-width: 640px) {
-          .files-container {
-            max-height: none !important;
-          }
+        /* اسکرول عمومی پنل محتوا (برای موبایل + دسکتاپ) */
+        .panel-scroll {
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
         }
 
         .scroll-area {
@@ -674,7 +675,7 @@ export default function JournalTopicBoard({
 
             {/* بدنه */}
             <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
-              {/* ستون بخش‌ها */}
+              {/* ستون بخش‌ها (باریک‌تر) */}
               <div className="md:w-[32%] grid grid-cols-2 md:grid-cols-1 gap-2 md:gap-3">
                 {SECTIONS.map((sec) => {
                   const active = sec.id === activeId;
@@ -705,6 +706,7 @@ export default function JournalTopicBoard({
 
             {/* دکمه‌های پایین */}
             <div className="mt-2 flex justify-between items-center gap-2">
+              {/* خروج کامل به صفحه لاگین ژورنال */}
               <button
                 type="button"
                 onClick={onExit}
@@ -713,6 +715,7 @@ export default function JournalTopicBoard({
                 {isFa ? "خروج از ژورنال" : "Exit journal"}
               </button>
 
+              {/* برگشت به صفحه قبل (لیست تاپیک‌ها) */}
               <button
                 type="button"
                 onClick={onBack}
