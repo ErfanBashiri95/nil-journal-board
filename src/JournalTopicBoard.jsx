@@ -446,7 +446,7 @@ export default function JournalTopicBoard({
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               placeholder=""
-              className="w-full min-h-[110px] md:min-h-[140px] rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-2 text-[11px] md:text-xs text-slate-100 resize-none focus:outline-none focus:ring-1 focus:ring-sky-400 scroll-area overflow-auto"
+              className="w-full min-h-[110px] md:min-h-[140px] rounded-xl bg-slate-900/70 border border-slate-600/70 px-3 py-2 text-[11px] md:text-xs text-slate-100 resize-none focus:outline-none focus:ring-1 focus:ring-sky-400 scroll-area overflow-auto note-textarea"
             />
 
             <div className="flex items-center justify-between text-[10px] md:text-xs text-slate-400">
@@ -571,6 +571,11 @@ export default function JournalTopicBoard({
           .journal-root {
             background-image: none !important;
             background-color: #020617 !important;
+          }
+
+          .note-textarea {
+            max-height: 140px;
+            -webkit-overflow-scrolling: touch;
           }
 
           .mobile-bg {
@@ -699,7 +704,7 @@ export default function JournalTopicBoard({
               </div>
 
               {/* پنل محتوا */}
-              <div className="flex-1 min-h-0 rounded-2xl bg-slate-950/50 border border-slate-600/60 px-3 py-3 md:px-4 md:py-4 flex flex-col gap-2 overflow-hidden panel-scroll">
+              <div className="flex-1 min-h-0 rounded-2xl bg-slate-950/50 border border-slate-600/60 px-3 py-3 md:px-4 md:py-4 flex flex-col gap-2 overflow-hidden panel-scroll scroll-area">
                 {renderPanel()}
               </div>
             </div>
