@@ -575,6 +575,7 @@ export default function JournalTopicBoard({
 
           .note-textarea {
             max-height: 140px;
+            overflow-y:auto;
             -webkit-overflow-scrolling: touch;
           }
 
