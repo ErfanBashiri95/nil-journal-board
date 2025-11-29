@@ -431,7 +431,7 @@ export default function JournalTopicBoard({
           </p>
 
           {/* کل این بخش اسکرول می‌شود (خود پنل-scroll والدِ این div است) */}
-          <div className="flex-1 min-h-0 max-h-[48vh] md:max-h-[52vh] scroll-area overflow-auto pr-1 flex flex-col gap-2">
+          <div className="flex-1 min-h-0 flex flex-col gap-2 scroll-area overflow-auto pr-1 md:max-h-[52vh]">
             <input
               type="text"
               value={noteTitle}
@@ -586,9 +586,9 @@ export default function JournalTopicBoard({
 
           /* پنل محتوا روی موبایل: ارتفاع محدود + اسکرول */
           .panel-scroll {
-            max-height: calc(100vh - 220px);
             overflow-y: auto;
             overflow-x: hidden;
+            -webkit-overflow-scrolling:touch;
           }
         }
 
