@@ -35,8 +35,8 @@ export default function JournalTopicBoard({
   username,
   topicId,
   topicTitle,
-  onBack = () => { },
-  onExit = () => { },
+  onBack = () => {},
+  onExit = () => {},
 }) {
   const [activeId, setActiveId] = useState("text");
 
@@ -194,10 +194,10 @@ export default function JournalTopicBoard({
       prev.map((n) =>
         n.id === editingNoteId
           ? {
-            ...n,
-            title: editingNoteTitle.trim() || n.title,
-            content: editingNoteText.trim() || n.content,
-          }
+              ...n,
+              title: editingNoteTitle.trim() || n.title,
+              content: editingNoteText.trim() || n.content,
+            }
           : n
       )
     );
@@ -258,8 +258,9 @@ export default function JournalTopicBoard({
     }
 
     return (
-      <div className="mt-2 md:max-h-40 overflow-auto pr-1 pb-2 scroll-area files-container">
+      <div className="mt-2 max-h-40 md:max-h-44 overflow-auto pr-1 pb-8 scroll-area">
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
+    
           {items.map((f) => (
             <div
               key={f.id}
@@ -280,8 +281,8 @@ export default function JournalTopicBoard({
                 }
               >
                 {sectionId === "media" &&
-                  f.previewUrl &&
-                  f.type?.startsWith("image/") ? (
+                f.previewUrl &&
+                f.type?.startsWith("image/") ? (
                   <img
                     src={f.previewUrl}
                     alt={f.name}
@@ -369,10 +370,11 @@ export default function JournalTopicBoard({
               <button
                 type="button"
                 onClick={isRecording ? stopRecording : startRecording}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${isRecording
-                  ? "border-red-400 bg-red-500/20 text-red-100"
-                  : "border-red-400/70 bg-red-400/10 text-red-100 hover:bg-red-400/20"
-                  }`}
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${
+                  isRecording
+                    ? "border-red-400 bg-red-500/20 text-red-100"
+                    : "border-red-400/70 bg-red-400/10 text-red-100 hover:bg-red-400/20"
+                }`}
               >
                 <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
                 {isRecording ? "توقف ضبط" : "شروع ضبط ویس"}
@@ -563,57 +565,59 @@ export default function JournalTopicBoard({
       dir={isFa ? "rtl" : "ltr"}
     >
       <style>{`
-  @media (max-width: 640px) {
-    .journal-root {
-      background-image: none !important;
-      background-color: #020617 !important;
-    }
+        @media (max-width: 640px) {
+          .journal-root {
+            background-image: none !important;
+            background-color: #020617 !important;
+          }
 
-    .mobile-bg {
-      background-image: url(${deskBgMobile}) !important;
-      background-size: cover !important;
-      background-position: center bottom !important;
-      background-repeat: no-repeat !important;
-      width: 100% !important;
-      height: 100% !important;
-    }
+          .mobile-bg {
+            background-image: url(${deskBgMobile}) !important;
+            background-size: cover !important;
+            background-position: center bottom !important;
+            background-repeat: no-repeat !important;
+            width: 100% !important;
+            height: 100% !important;
+          }
 
-    .journal-monitor {
-      overflow: hidden !important;
-    }
+          .journal-monitor {
+            overflow: hidden !important;
+          }
 
-    /* 🔹 پنل محتوا روی موبایل: ارتفاع بیشتر + اسکرول عمودی */
-    .panel-scroll {
-      max-height: calc(100vh - 150px);
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
+          /* پنل محتوا روی موبایل: ارتفاع محدود + اسکرول */
+          .panel-scroll {
+            max-height: calc(100vh - 220px);
+            overflow-y: auto;
+            overflow-x: hidden;
+          }
+        }
 
-    /* 🔹 داخل گرید فایل‌ها کمی padding پایین تا ردیف آخر کامل دیده شود */
-    .files-container {
-      max-height: none !important;
-      padding-bottom: 24px;
-    }
-  }
+        /* روی موبایل، خود لیست فایل‌ها افزایش ارتفاع می‌دهد
+           و اسکرول اصلی با پنل انجام می‌شود */
+        @media (max-width: 640px) {
+          .files-container {
+            max-height: none !important;
+          }
+        }
 
-  .scroll-area {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(56,189,248,0.8) rgba(15,23,42,0.95);
-  }
-  .scroll-area::-webkit-scrollbar {
-    width: 6px;
-  }
-  .scroll-area::-webkit-scrollbar-track {
-    background: rgba(15,23,42,0.95);
-    border-radius: 9999px;
-  }
-  .scroll-area::-webkit-scrollbar-thumb {
-    background: rgba(56,189,248,0.85);
-    border-radius: 9999px;
-  }
+        .scroll-area {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(56,189,248,0.8) rgba(15,23,42,0.95);
+        }
+        .scroll-area::-webkit-scrollbar {
+          width: 6px;
+        }
+        .scroll-area::-webkit-scrollbar-track {
+          background: rgba(15,23,42,0.95);
+          border-radius: 9999px;
+        }
+        .scroll-area::-webkit-scrollbar-thumb {
+          background: rgba(56,189,248,0.85);
+          border-radius: 9999px;
+        }
 
-  ${starAnimationStyle}
-`}</style>
+        ${starAnimationStyle}
+      `}</style>
 
       <div className="absolute inset-0 mobile-bg" />
 
@@ -679,10 +683,11 @@ export default function JournalTopicBoard({
                       key={sec.id}
                       type="button"
                       onClick={() => setActiveId(sec.id)}
-                      className={`group flex flex-col items-start justify-between rounded-2xl border px-2 py-1.5 md:px-3.5 md:py-3 text-right transition-all duration-200 ${active
-                        ? "border-sky-400 bg-sky-400/15 shadow-[0_0_18px_rgba(56,189,248,0.45)] scale-[1.02]"
-                        : "border-slate-600/70 bg-slate-900/70 hover:border-sky-400/70 hover:bg-slate-900"
-                        }`}
+                      className={`group flex flex-col items-start justify-between rounded-2xl border px-2 py-1.5 md:px-3.5 md:py-3 text-right transition-all duration-200 ${
+                        active
+                          ? "border-sky-400 bg-sky-400/15 shadow-[0_0_18px_rgba(56,189,248,0.45)] scale-[1.02]"
+                          : "border-slate-600/70 bg-slate-900/70 hover:border-sky-400/70 hover:bg-slate-900"
+                      }`}
                     >
                       <span className="text-[10px] md:text-sm font-semibold leading-tight line-clamp-2">
                         {sec.title}
