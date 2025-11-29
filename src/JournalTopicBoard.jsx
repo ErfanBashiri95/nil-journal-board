@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import deskBgDesktop from "./assets/journal-desk-bg.jpg";
 import deskBgMobile from "./assets/journal-desk-bg-mobile.jpg";
 
@@ -15,7 +15,7 @@ const STAR_POSITIONS = [
 const SECTIONS = [
   { id: "text", title: "فایل‌های متنی" },
   { id: "audio", title: "فایل‌های صوتی / ویس" },
-  { id: "media", title: "गالری تصویر و ویدئو" },
+  { id: "media", title: "گالری تصویر و ویدئو" },
   { id: "notes", title: "نوت‌های تحقیق" },
 ];
 
@@ -61,23 +61,6 @@ export default function JournalTopicBoard({
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-
-  // 🔹 ref برای لیست فایل‌های بخش فعال
-  const filesScrollRef = useRef(null);
-
-  // 🔹 بعد از هر تغییر در فایل‌ها (در تب فعال)، روی موبایل اسکرول لیست فایل‌ها تا ته برود
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const el = filesScrollRef.current;
-    if (!el) return;
-
-    if (window.innerWidth > 640) return; // فقط موبایل
-
-    // کمی صبر می‌کنیم تا DOM رندر کامل شود
-    setTimeout(() => {
-      el.scrollTop = el.scrollHeight;
-    }, 0);
-  }, [filesBySection, activeId]);
 
   const handleAddFiles = (sectionId, fileList) => {
     const newFiles = Array.from(fileList || []);
@@ -276,10 +259,7 @@ export default function JournalTopicBoard({
     }
 
     return (
-      <div
-        className="mt-2 max-h-36 md:max-h-40 overflow-auto pr-1 pb-2 scroll-area mobile-files"
-        ref={sectionId === activeId ? filesScrollRef : null}
-      >
+      <div className="mt-2 md:max-h-40 overflow-auto pr-1 pb-2 scroll-area files-container">
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
           {items.map((f) => (
             <div
@@ -604,21 +584,22 @@ export default function JournalTopicBoard({
             height: 100% !important;
           }
 
-          /* مانیتور روی موبایل خودش اسکرول نداشته باشد */
+          /* ❗ مانیتور روی موبایل اسکرول نداشته باشد */
           .journal-monitor {
             overflow: hidden !important;
           }
 
-          /* فقط پنل محتوا روی موبایل اسکرول داشته باشد و کمی بلندتر شود */
+          /* 🔹 فقط پنل محتوا روی موبایل اسکرول داشته باشد (بدون محدودیت vh) */
           .panel-scroll {
-            max-height: 60vh;
             overflow-y: auto;
             overflow-x: hidden;
           }
+        }
 
-          /* لیست فایل‌ها روی موبایل بلندتر شود تا آیتم‌ها کامل دیده شوند */
-          .mobile-files {
-            max-height: 55vh !important;
+        /* 🔹 روی موبایل، برای لیست فایل‌ها max-height نگذار (بذار داخل پنل scroll بخورد) */
+        @media (max-width: 640px) {
+          .files-container {
+            max-height: none !important;
           }
         }
 
@@ -672,8 +653,8 @@ export default function JournalTopicBoard({
 
             left-[15.5%]
             right-[15.4%]
-            top-[22.8%]
-            bottom-[12%]
+            top-[22%]
+            bottom-[11%]
 
             max-sm:left-[0.2%]
             max-sm:right-[0.2%]
