@@ -51,6 +51,15 @@ export default function JournalTopicBoard({
     media: [],
   });
 
+  // 🔹 منوی فایل (Rename/Delete)
+  const [fileMenu, setFileMenu] = useState({
+    open: false,
+    sectionId: null,
+    file: null,
+    x: 0,
+    y: 0,
+  });
+
   const [noteTitle, setNoteTitle] = useState("");
   const [noteText, setNoteText] = useState("");
   const [notesList, setNotesList] = useState([]);
@@ -248,6 +257,33 @@ export default function JournalTopicBoard({
     }));
   };
 
+  // 🔹 حذف فایل از یک سکشن
+  const handleFileDelete = (sectionId, fileId) => {
+    setFilesBySection((prev) => ({
+      ...prev,
+      [sectionId]: prev[sectionId].filter((f) => f.id !== fileId),
+    }));
+  };
+
+  // 🔹 باز کردن منوی فایل (دابل‌کلیک / راست‌کلیک)
+  const openFileMenu = (event, sectionId, file) => {
+    event.preventDefault();
+    const clickX = event.clientX;
+    const clickY = event.clientY;
+
+    setFileMenu({
+      open: true,
+      sectionId,
+      file,
+      x: clickX,
+      y: clickY,
+    });
+  };
+
+  const closeFileMenu = () => {
+    setFileMenu((prev) => ({ ...prev, open: false }));
+  };
+
   const renderFilesGrid = (sectionId) => {
     const items = filesBySection[sectionId] || [];
     if (!items.length) {
@@ -265,12 +301,9 @@ export default function JournalTopicBoard({
             <div
               key={f.id}
               className="flex flex-col items-center justify-start text-center cursor-default select-none"
-              onContextMenu={(e) => {
-                e.preventDefault();
-                handleFileRename(sectionId, f);
-              }}
-              onDoubleClick={() => handleFileRename(sectionId, f)}
-              title="برای تغییر نام، کلیک راست یا دابل‌کلیک کن"
+              onContextMenu={(e) => openFileMenu(e, sectionId, f)}
+              onDoubleClick={(e) => openFileMenu(e, sectionId, f)}
+              title="برای تغییر نام یا حذف، کلیک راست یا دابل‌کلیک کن"
             >
               <div
                 className={
@@ -733,6 +766,52 @@ export default function JournalTopicBoard({
           </div>
         </div>
       </div>
+
+      {/* 🔹 منوی راست‌کلیک/دابل‌کلیک برای فایل‌ها */}
+      {fileMenu.open && fileMenu.file && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={closeFileMenu}
+        >
+          <div
+            className="absolute z-50 min-w-[140px] rounded-xl bg-slate-900/95 border border-slate-600 shadow-lg text-[11px] md:text-xs text-slate-100"
+            style={{
+              top: fileMenu.y,
+              left: fileMenu.x,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="w-full text-right px-3 py-2 hover:bg-slate-800"
+              onClick={() => {
+                if (fileMenu.sectionId && fileMenu.file) {
+                  handleFileRename(fileMenu.sectionId, fileMenu.file);
+                }
+                closeFileMenu();
+              }}
+            >
+              تغییر نام فایل
+            </button>
+            <button
+              type="button"
+              className="w-full text-right px-3 py-2 text-rose-300 hover:bg-rose-600/20"
+              onClick={() => {
+                if (
+                  fileMenu.sectionId &&
+                  fileMenu.file &&
+                  window.confirm("آیا از حذف این فایل مطمئن هستی؟")
+                ) {
+                  handleFileDelete(fileMenu.sectionId, fileMenu.file.id);
+                }
+                closeFileMenu();
+              }}
+            >
+              حذف فایل
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
