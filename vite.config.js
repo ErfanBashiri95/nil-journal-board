@@ -4,22 +4,21 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
 
-  // dev روی لوکال خودت
+  // برای dev روی لپ‌تاپ خودت
   server: {
     host: true,
     port: 5173,
   },
 
-  // preview روی Railway
+  // برای Railway (npm run preview)
   preview: {
     host: "0.0.0.0",
     port: 8080,
-
-    /**
-     * 🔥 مهم‌ترین خط:
-     * با true کردن، Vite هر هاستی رو قبول می‌کنه
-     * و دیگه پیغام "Blocked request / allowedHosts" نمی‌آد.
-     */
-    allowedHosts: true,
+    // دقیقاً دامین خودت رو اینجا می‌نویسیم
+    allowedHosts: [
+      "nil-journal.nilpapd.com",
+      "nil-journal.nilpapd.com:443",
+      "nil-journal.nilpapd.com:80",
+    ],
   },
 });
