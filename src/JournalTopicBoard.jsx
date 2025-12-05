@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef,useEffect } from "react";
 import deskBgDesktop from "./assets/journal-desk-bg.jpg";
 import deskBgMobile from "./assets/journal-desk-bg-mobile.jpg";
 
@@ -50,6 +50,69 @@ export default function JournalTopicBoard({
     audio: [],
     media: [],
   });
+  // =========================
+  // ذخیره لیست فایل‌ها در localStorage
+  // =========================
+  const STORAGE_KEY_BASE = "nil_journal_files";
+
+const getStorageKey = () => {
+  const u = username || "guest";
+  const t = topicId || "default";
+  return `${STORAGE_KEY_BASE}__${u}__${t}`;
+};
+
+// 🟦 ذخیره‌ی هم‌زمان فایل‌ها + نوت‌ها
+const saveJournalStateToStorage = (nextFilesBySection, nextNotesList) => {
+  try {
+    if (typeof window === "undefined") return;
+    const key = getStorageKey();
+
+    const payload = {
+      text: nextFilesBySection?.text || [],
+      audio: nextFilesBySection?.audio || [],
+      media: nextFilesBySection?.media || [],
+      notes: nextNotesList || [],
+    };
+
+    window.localStorage.setItem(key, JSON.stringify(payload));
+  } catch (err) {
+    console.error("localStorage save error:", err);
+  }
+};
+
+  // =========================
+  // لود کردن فایل‌ها از localStorage هنگام ورود
+  // =========================
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const key = getStorageKey();
+      const raw = window.localStorage.getItem(key);
+      if (!raw) {
+        setFilesBySection({
+          text: [],
+          audio: [],
+          media: [],
+        });
+        setNotesList([]); // 🟦 نوت‌ها هم خالی
+        return;
+      }
+  
+      const parsed = JSON.parse(raw) || {};
+  
+      setFilesBySection({
+        text: parsed.text || [],
+        audio: parsed.audio || [],
+        media: parsed.media || [],
+      });
+  
+      setNotesList(parsed.notes || []); // 🟦 نوت‌های ذخیره‌شده
+    } catch (err) {
+      console.error("localStorage load error:", err);
+    }
+  }, [username, topicId]);
+  
+
 
   // 🔹 منوی فایل (Rename/Delete)
   const [fileMenu, setFileMenu] = useState({
@@ -123,17 +186,13 @@ export default function JournalTopicBoard({
     const uploaded = [];
   
     for (const f of newFiles) {
-      // 1) آپلود واقعی روی هاست
       const uploadedUrl = await uploadRealFile(f);
-  
       if (!uploadedUrl) {
         console.warn("آپلود فایل شکست خورد:", f.name);
         continue;
       }
   
-      // 2) ساخت آبجکت فایل
       const id = `${sectionId}-${Date.now()}-${Math.random()}`;
-  
       const fileObj = {
         id,
         name: f.name,
@@ -142,7 +201,7 @@ export default function JournalTopicBoard({
         createdAt: new Date().toISOString(),
         recorded: false,
         fileObject: f,
-        url: uploadedUrl, // ⭐ لینک واقعی هاست
+        url: uploadedUrl,
         previewUrl:
           sectionId === "media" && f.type.startsWith("image/")
             ? uploadedUrl
@@ -152,14 +211,18 @@ export default function JournalTopicBoard({
       uploaded.push(fileObj);
     }
   
-    // 3) ذخیره در state
     if (uploaded.length > 0) {
-      setFilesBySection((prev) => ({
-        ...prev,
-        [sectionId]: [...prev[sectionId], ...uploaded],
-      }));
+      setFilesBySection((prev) => {
+        const next = {
+          ...prev,
+          [sectionId]: [...prev[sectionId], ...uploaded],
+        };
+        saveJournalStateToStorage(next,notesList); // ⭐ ذخیره در localStorage
+        return next;
+      });
     }
   };
+
 
   const handleDrop = (e, sectionId) => {
     e.preventDefault();
@@ -211,10 +274,14 @@ export default function JournalTopicBoard({
           // اگر بخوای تو future ویو پلیر جدا بسازی می‌تونی previewUrl نذاری
         };
       
-        setFilesBySection((prev) => ({
-          ...prev,
-          audio: [...prev.audio, fakeFile],
-        }));
+        setFilesBySection((prev) => {
+          const next = {
+            ...prev,
+            audio: [...prev.audio, fakeFile],
+          };
+          saveJournalStateToStorage(next,notesList); // ⭐
+          return next;
+        });
       };
       
       mr.start();
@@ -238,28 +305,40 @@ export default function JournalTopicBoard({
 
   const handleSaveNote = () => {
     if (!noteText.trim() && !noteTitle.trim()) return;
-
-    setNotesList((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        title: noteTitle.trim() || "نوت بدون عنوان",
-        content: noteText.trim(),
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+  
+    const newNote = {
+      id: Date.now(),
+      title: noteTitle.trim() || "نوت بدون عنوان",
+      content: noteText.trim(),
+      createdAt: new Date().toISOString(),
+    };
+  
+    setNotesList((prev) => {
+      const updated = [...prev, newNote];
+      // 🟦 فایل‌های فعلی + نوت‌های جدید
+      saveJournalStateToStorage(filesBySection, updated);
+      return updated;
+    });
+  
     setNoteTitle("");
     setNoteText("");
   };
+  
 
   const handleDeleteNote = (id) => {
-    setNotesList((prev) => prev.filter((n) => n.id !== id));
+    setNotesList((prev) => {
+      const updated = prev.filter((n) => n.id !== id);
+      saveJournalStateToStorage(filesBySection, updated); // 🟦
+      return updated;
+    });
+  
     if (editingNoteId === id) {
       setEditingNoteId(null);
       setEditingNoteText("");
       setEditingNoteTitle("");
     }
   };
+  
 
   const handleStartEditNote = (note) => {
     setEditingNoteId(note.id);
@@ -269,8 +348,9 @@ export default function JournalTopicBoard({
 
   const handleSaveEditNote = () => {
     if (!editingNoteId) return;
-    setNotesList((prev) =>
-      prev.map((n) =>
+  
+    setNotesList((prev) => {
+      const updated = prev.map((n) =>
         n.id === editingNoteId
           ? {
               ...n,
@@ -278,13 +358,17 @@ export default function JournalTopicBoard({
               content: editingNoteText.trim() || n.content,
             }
           : n
-      )
-    );
+      );
+  
+      saveJournalStateToStorage(filesBySection, updated); // 🟦
+      return updated;
+    });
+  
     setEditingNoteId(null);
     setEditingNoteText("");
     setEditingNoteTitle("");
   };
-
+  
   const handleCancelEditNote = () => {
     setEditingNoteId(null);
     setEditingNoteText("");
@@ -318,27 +402,38 @@ export default function JournalTopicBoard({
     const newName = window.prompt("نام جدید فایل:", currentName);
     if (!newName || !newName.trim() || newName.trim() === currentName) return;
 
-    setFilesBySection((prev) => ({
-      ...prev,
-      [sectionId]: prev[sectionId].map((f) =>
-        f.id === file.id ? { ...f, name: newName.trim() } : f
-      ),
-    }));
+    setFilesBySection((prev) => {
+      const next = {
+        ...prev,
+        [sectionId]: prev[sectionId].map((f) =>
+          f.id === file.id ? { ...f, name: newName.trim() } : f
+        ),
+      };
+      saveJournalStateToStorage(next,notesList); // ⭐
+      return next;
+    });
   };
+
 
   // 🔹 حذف فایل از یک سکشن
   const handleFileDelete = (sectionId, file) => {
-    // ۱) درخواست حذف از سرور (اگر url داشت)
+    // ۱) درخواست حذف از سرور (اگر فایل روی هاست آپلود شده باشد)
     if (file?.url) {
       deleteFileFromServer(file.url);
     }
   
-    // ۲) حذف از state
-    setFilesBySection((prev) => ({
-      ...prev,
-      [sectionId]: prev[sectionId].filter((f) => f.id !== file.id),
-    }));
+    // ۲) حذف از state + ذخیره در localStorage
+    setFilesBySection((prev) => {
+      const next = {
+        ...prev,
+        [sectionId]: prev[sectionId].filter((f) => f.id !== file.id),
+      };
+  
+      saveJournalStateToStorage(next,notesList); // ⭐ ذخیره تغییرات در localStorage
+      return next;
+    });
   };
+  
   
 
   // 🔹 باز کردن منوی فایل (دابل‌کلیک / راست‌کلیک)
