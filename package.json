@@ -11,7 +11,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview --port 8080 --host 0.0.0.0",
-    "start": "serve -s dist -| 8080"
+    "start": "serve -| 8080 -s dist"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",
