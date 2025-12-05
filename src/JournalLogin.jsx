@@ -22,9 +22,10 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
   const backText = isFa ? "بازگشت" : "Back";
 
   const handleContinue = async () => {
-    const raw = (username || "").trim();
-
-    if (!raw) {
+    // ۱) تمیز کردن یوزرنیم
+    const rawInput = (username || "").trim();
+  
+    if (!rawInput) {
       setErrorMsg(
         isFa
           ? "لطفاً نام کاربری خود را وارد کن."
@@ -32,21 +33,36 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
       );
       return;
     }
-
+  
+    // هم برای لاجیک استفاده می‌کنیم، هم تو state نگه می‌داریم
+    const cleaned = rawInput.toLowerCase();
+  
+    // یوزرنیم تمیز شده رو تو state بالا هم ست کن
+    setUsername(cleaned);
+  
     setErrorMsg("");
     setLoading(true);
-
+  
     try {
-      const normalized = raw.toLowerCase();
-
+      console.log("🔍 JournalLogin – searching topics for username:", {
+        rawInput,
+        cleaned,
+      });
+      console.log(
+        "🔗 SUPABASE URL in frontend:",
+        import.meta.env.VITE_SUPABASE_URL
+      );
+  
       const { data, error } = await supabase
         .from("niljournal_topics")
         .select("id, username, topic_title, created_at")
-        .ilike("username", normalized)
+        .ilike("username", cleaned) // حساس‌نبودن به کوچیک/بزرگ
         .order("created_at", { ascending: true });
-
+  
+      console.log("📦 Supabase result in JournalLogin:", { error, data });
+  
       setLoading(false);
-
+  
       if (error) {
         console.error("Supabase error:", error);
         setErrorMsg(
@@ -56,7 +72,7 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
         );
         return;
       }
-
+  
       if (!data || data.length === 0) {
         setErrorMsg(
           isFa
@@ -65,13 +81,13 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
         );
         return;
       }
-
-      // نام کاربری نهایی که از دیتابیس می‌گیریم (برای نمایش)
-      const dbUsername = data[0].username || raw;
-
-      // به state اصلی برگردون
+  
+      // ✅ نام کاربری را از دیتابیس می‌گیریم (اگر مثلاً حروفش فرق داشت)
+      const dbUsername = (data[0].username || cleaned).trim();
+  
+      // برگردون تو state اصلی
       setUsername(dbUsername);
-
+  
       const payload =
         data.length === 1
           ? {
@@ -84,7 +100,7 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
               username: dbUsername,
               topics: data,
             };
-
+  
       onContinue?.(payload);
     } catch (err) {
       console.error("Unexpected error:", err);
@@ -96,6 +112,7 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
       );
     }
   };
+  
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !loading) {
