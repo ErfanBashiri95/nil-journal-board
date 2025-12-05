@@ -10,8 +10,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview --port 8080 --host 0.0.0.0",
-    "start": "vite preview --port 8080 --host 0.0.0.0"
+    "preview": "vite preview --port 8080 --host 0.0.0.0"
+    
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",
