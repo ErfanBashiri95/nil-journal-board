@@ -54,7 +54,7 @@ export default function JournalTopicBoard({
   // =========================
   // ذخیره لیست فایل‌ها در localStorage
   // =========================
-  const STORAGE_KEY_BASE = "nil_journal_files";
+  const STORAGE_KEY_BASE = "nil_journal_state";
 
   const getStorageKey = () => {
     const u = username || "guest";
@@ -62,17 +62,15 @@ export default function JournalTopicBoard({
     return `${STORAGE_KEY_BASE}__${u}__${t}`;
   };
 
-  // 🟦 ذخیره‌ی هم‌زمان فایل‌ها + نوت‌ها
   const saveJournalStateToStorage = (nextFilesBySection, nextNotesList) => {
     try {
       if (typeof window === "undefined") return;
+
       const key = getStorageKey();
 
       const payload = {
-        text: nextFilesBySection?.text || [],
-        audio: nextFilesBySection?.audio || [],
-        media: nextFilesBySection?.media || [],
-        notes: nextNotesList || [],
+        filesBySection: nextFilesBySection,
+        notesList: nextNotesList,
       };
 
       window.localStorage.setItem(key, JSON.stringify(payload));
@@ -81,120 +79,93 @@ export default function JournalTopicBoard({
     }
   };
 
-  const mapRowsToFilesBySection = (rows = []) => {
-    const bySection = {
-      text: [],
-      audio: [],
-      media: [],
-    };
-
-    rows.forEach((row) => {
-      const sec = row.section;
-      if (!bySection[sec]) return;
-
-      const base = {
-        id: row.id, // 👈 id واقعی Supabase
-        name: row.file_name,
-        type: row.file_type || "",
-        size: row.file_size || 0,
-        createdAt: row.created_at,
-        recorded: false,
-        fileObject: null,
-        url: row.url,
-        previewUrl: null,
-      };
-
-      if (sec === "media" && row.file_type?.startsWith("image/")) {
-        base.previewUrl = row.url;
-      }
-
-      bySection[sec].push(base);
-    });
-
-    return bySection;
-  };
-
-
   // =========================
-  // لود کردن فایل‌ها از localStorage هنگام ورود
+  // لود کردن وضعیت از localStorage هنگام ورود
   // =========================
   useEffect(() => {
-    const loadFiles = async () => {
-      try {
-        // اگر هنوز username یا topicId نداریم، فقط localStorage رو چک کن
-        if (!username || !topicId) {
-          if (typeof window === "undefined") return;
-          const key = getStorageKey();
-          const raw = window.localStorage.getItem(key);
-          if (!raw) {
-            setFilesBySection({ text: [], audio: [], media: [] });
-            return;
-          }
-          const parsed = JSON.parse(raw) || {};
-          setFilesBySection({
-            text: parsed.text || [],
-            audio: parsed.audio || [],
-            media: parsed.media || [],
-          });
-          return;
-        }
+    // اگر هنوز username یا topicId نداریم، کاری نکن
+    if (!username || !topicId) return;
 
-        // ۱) تلاش برای خواندن از Supabase
+    const loadState = async () => {
+      try {
+        // ۱) اول از Supabase فایل‌ها را می‌خوانیم
         const { data, error } = await supabase
           .from("niljournal_files")
-          .select(
-            "id, username, topic_id, section, file_name, file_type, file_size, url, created_at"
-          )
+          .select("*")
           .eq("username", username)
           .eq("topic_id", topicId)
           .order("created_at", { ascending: true });
 
-        if (error) {
-          console.error("Supabase load error:", error);
-          // اگر خطا شد، fallback به localStorage
-          if (typeof window === "undefined") return;
-          const key = getStorageKey();
-          const raw = window.localStorage.getItem(key);
-          if (!raw) {
-            setFilesBySection({ text: [], audio: [], media: [] });
-            return;
-          }
-          const parsed = JSON.parse(raw) || {};
-          setFilesBySection({
-            text: parsed.text || [],
-            audio: parsed.audio || [],
-            media: parsed.media || [],
+        let remoteFiles = {
+          text: [],
+          audio: [],
+          media: [],
+        };
+
+        if (!error && data && data.length > 0) {
+          data.forEach((row) => {
+            if (!remoteFiles[row.section]) return;
+
+            remoteFiles[row.section].push({
+              id: row.id, // 👈 id واقعی از دیتابیس
+              name: row.file_name,
+              type: row.file_type,
+              size: row.file_size,
+              createdAt: row.created_at,
+              recorded: false,
+              url: row.url,
+              previewUrl:
+                row.section === "media" &&
+                row.file_type &&
+                row.file_type.startsWith("image/")
+                  ? row.url
+                  : null,
+            });
           });
-          return;
         }
 
-        if (data && data.length > 0) {
-          const bySection = mapRowsToFilesBySection(data);
-          setFilesBySection(bySection);
-          saveFilesToStorage(bySection); // کش محلی
-        } else {
-          // اگر دیتابیس خالی بود، از localStorage بخون
-          if (typeof window === "undefined") return;
+        // ۲) نوت‌ها (و در صورت نیاز فایل‌ها) را از localStorage می‌خوانیم
+        let notesFromStorage = [];
+        let filesFromStorage = null;
+
+        if (typeof window !== "undefined") {
           const key = getStorageKey();
           const raw = window.localStorage.getItem(key);
-          if (!raw) {
-            setFilesBySection({ text: [], audio: [], media: [] });
-            return;
+          if (raw) {
+            const parsed = JSON.parse(raw) || {};
+            filesFromStorage = parsed.filesBySection || null;
+            notesFromStorage = parsed.notesList || [];
           }
-          const parsed = JSON.parse(raw) || {};
-          setFilesBySection({
-            text: parsed.text || [],
-            audio: parsed.audio || [],
-            media: parsed.media || [],
-          });
         }
+
+        // ۳) اگر Supabase فایل داشت → از همون استفاده کن
+        // اگر Supabase خالی بود → از localStorage استفاده کن
+        const hasRemoteFiles = Object.values(remoteFiles).some(
+          (arr) => arr && arr.length > 0
+        );
+
+        const finalFiles = hasRemoteFiles
+          ? remoteFiles
+          : filesFromStorage || {
+              text: [],
+              audio: [],
+              media: [],
+            };
+
+        setFilesBySection(finalFiles);
+        setNotesList(notesFromStorage);
+
+        // ۴) برای هم‌سان‌سازی، همین وضعیت را دوباره در localStorage ذخیره می‌کنیم
+        saveJournalStateToStorage(finalFiles, notesFromStorage);
       } catch (err) {
-        console.error("loadFiles unexpected error:", err);
+        console.error("loadState error:", err);
       }
     };
 
-    loadFiles();
+    loadState();
   }, [username, topicId]);
+
+
 
 
 
@@ -403,7 +374,10 @@ export default function JournalTopicBoard({
             ...prev,
             audio: [...prev.audio, withDbId],
           };
-          saveFilesToStorage(next);
+
+          // ⬅️ ذخیرهٔ وضعیت جدید (فایل‌ها + نوت‌ها)
+          saveJournalStateToStorage(next, notesList);
+
           return next;
         });
 
@@ -528,30 +502,40 @@ export default function JournalTopicBoard({
 
     if (!newName || !newName.trim() || newName.trim() === currentName) return;
 
-    const finalName = newName.trim();
+    const trimmed = newName.trim();
 
-    // ۱) آپدیت در Supabase (اگر فایل دیتابیس ذخیره شده باشد)
-    if (file?.id) {
+    // ۱) اگر id دیتابیسی داریم، اول Supabase را آپدیت کنیم
+    if (file.id) {
       try {
         const { error } = await supabase
           .from("niljournal_files")
-          .update({ name: finalName })
+          .update({ file_name: trimmed })
           .eq("id", file.id);
 
         if (error) {
           console.error("Supabase rename error:", error);
+          alert("خطا در به‌روزرسانی نام فایل روی سرور.");
+          // در صورت خطا، دیگه state را عوض نکن که desync نشه
+          return;
         }
       } catch (err) {
         console.error("Supabase rename exception:", err);
+        alert("مشکل در ارتباط با سرور هنگام تغییر نام فایل.");
+        return;
       }
+    } else {
+      // برای فایل‌های خیلی قدیمی که id دیتابیسی ندارند (اگر وجود داشته باشند)
+      console.warn(
+        "این فایل id دیتابیسی ندارد، فقط در localStorage به‌روزرسانی می‌شود."
+      );
     }
 
-    // ۲) آپدیت در state + ذخیره در localStorage
+    // ۲) حالا state و localStorage را به‌روزرسانی می‌کنیم
     setFilesBySection((prev) => {
       const next = {
         ...prev,
         [sectionId]: prev[sectionId].map((f) =>
-          f.id === file.id ? { ...f, name: finalName } : f
+          f.id === file.id ? { ...f, name: trimmed } : f
         ),
       };
 
@@ -559,6 +543,8 @@ export default function JournalTopicBoard({
       return next;
     });
   };
+
+
 
 
 
