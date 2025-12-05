@@ -71,13 +71,70 @@ export default function JournalTopicBoard({
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  const handleAddFiles = (sectionId, fileList) => {
+  const uploadRealFile = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+  
+    try {
+      const res = await fetch("https://nilpapd.com/uploads/upload.php", {
+        method: "POST",
+        body: formData,
+      });
+  
+      const data = await res.json();
+      if (data.success) {
+        return data.url; // لینک نهایی فایل روی هاست
+      } else {
+        alert("خطا در آپلود فایل روی سرور: " + data.message);
+        return null;
+      }
+    } catch (err) {
+      console.error(err);
+      alert("مشکل در ارتباط با سرور آپلود");
+      return null;
+    }
+  };
+
+  const deleteFileFromServer = async (fileUrl) => {
+    if (!fileUrl) return;
+  
+    try {
+      await fetch("https://nilpapd.com/uploads/delete.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: fileUrl }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.success) {
+            console.warn("مشکل در حذف فایل روی سرور:", data.message);
+          }
+        });
+    } catch (err) {
+      console.error("server delete error", err);
+    }
+  };
+  
+
+  const handleAddFiles = async (sectionId, fileList) => {
     const newFiles = Array.from(fileList || []);
     if (!newFiles.length) return;
-
-    const mapped = newFiles.map((f) => {
+  
+    const uploaded = [];
+  
+    for (const f of newFiles) {
+      // 1) آپلود واقعی روی هاست
+      const uploadedUrl = await uploadRealFile(f);
+  
+      if (!uploadedUrl) {
+        console.warn("آپلود فایل شکست خورد:", f.name);
+        continue;
+      }
+  
+      // 2) ساخت آبجکت فایل
       const id = `${sectionId}-${Date.now()}-${Math.random()}`;
-      const base = {
+  
+      const fileObj = {
         id,
         name: f.name,
         size: f.size,
@@ -85,22 +142,23 @@ export default function JournalTopicBoard({
         createdAt: new Date().toISOString(),
         recorded: false,
         fileObject: f,
+        url: uploadedUrl, // ⭐ لینک واقعی هاست
+        previewUrl:
+          sectionId === "media" && f.type.startsWith("image/")
+            ? uploadedUrl
+            : null,
       };
-
-      if (sectionId === "media" && f.type?.startsWith("image/")) {
-        return {
-          ...base,
-          previewUrl: URL.createObjectURL(f),
-        };
-      }
-
-      return base;
-    });
-
-    setFilesBySection((prev) => ({
-      ...prev,
-      [sectionId]: [...prev[sectionId], ...mapped],
-    }));
+  
+      uploaded.push(fileObj);
+    }
+  
+    // 3) ذخیره در state
+    if (uploaded.length > 0) {
+      setFilesBySection((prev) => ({
+        ...prev,
+        [sectionId]: [...prev[sectionId], ...uploaded],
+      }));
+    }
   };
 
   const handleDrop = (e, sectionId) => {
@@ -127,11 +185,20 @@ export default function JournalTopicBoard({
         audioChunksRef.current.push(event.data);
       };
 
-      mr.onstop = () => {
+      mr.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         const name = `voice-${new Date().toLocaleTimeString("fa-IR")}.webm`;
         const file = new File([blob], name, { type: blob.type });
-
+      
+        // ۱) آپلود روی هاست
+        const uploadedUrl = await uploadRealFile(file);
+      
+        if (!uploadedUrl) {
+          alert("آپلود ویس روی سرور انجام نشد.");
+          return;
+        }
+      
+        // ۲) ساخت آبجکت فایل مثل بقیه
         const fakeFile = {
           id: `audio-recorded-${Date.now()}`,
           name,
@@ -140,14 +207,16 @@ export default function JournalTopicBoard({
           createdAt: new Date().toISOString(),
           recorded: true,
           fileObject: file,
+          url: uploadedUrl,
+          // اگر بخوای تو future ویو پلیر جدا بسازی می‌تونی previewUrl نذاری
         };
-
+      
         setFilesBySection((prev) => ({
           ...prev,
           audio: [...prev.audio, fakeFile],
         }));
       };
-
+      
       mr.start();
       setIsRecording(true);
     } catch (err) {
@@ -258,12 +327,19 @@ export default function JournalTopicBoard({
   };
 
   // 🔹 حذف فایل از یک سکشن
-  const handleFileDelete = (sectionId, fileId) => {
+  const handleFileDelete = (sectionId, file) => {
+    // ۱) درخواست حذف از سرور (اگر url داشت)
+    if (file?.url) {
+      deleteFileFromServer(file.url);
+    }
+  
+    // ۲) حذف از state
     setFilesBySection((prev) => ({
       ...prev,
-      [sectionId]: prev[sectionId].filter((f) => f.id !== fileId),
+      [sectionId]: prev[sectionId].filter((f) => f.id !== file.id),
     }));
   };
+  
 
   // 🔹 باز کردن منوی فایل (دابل‌کلیک / راست‌کلیک)
   const openFileMenu = (event, sectionId, file) => {
@@ -294,6 +370,9 @@ export default function JournalTopicBoard({
       );
     }
 
+    
+    
+
     return (
       <div className="mt-2 pr-1 pb-2 scroll-area files-grid-wrapper">
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-3 md:gap-x-4 md:gap-y-4">
@@ -304,6 +383,7 @@ export default function JournalTopicBoard({
               onContextMenu={(e) => openFileMenu(e, sectionId, f)}
               onDoubleClick={(e) => openFileMenu(e, sectionId, f)}
               title="برای تغییر نام یا حذف، کلیک راست یا دابل‌کلیک کن"
+              onClick={()=>f.url && window.open(f.url,"_blank")}
             >
               <div
                 className={
@@ -802,7 +882,7 @@ export default function JournalTopicBoard({
                   fileMenu.file &&
                   window.confirm("آیا از حذف این فایل مطمئن هستی؟")
                 ) {
-                  handleFileDelete(fileMenu.sectionId, fileMenu.file.id);
+                  handleFileDelete(fileMenu.sectionId, fileMenu.file);
                 }
                 closeFileMenu();
               }}
