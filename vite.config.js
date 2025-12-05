@@ -6,19 +6,23 @@ export default defineConfig({
 
   // برای dev روی لپ‌تاپ خودت
   server: {
-    host: true,
+    host: "0.0.0.0",
     port: 5173,
+    allowedHosts: [
+      "localhost",
+      "127.0.0.1",
+      "nil-journal.nilpapd.com",
+    ],
   },
 
-  // برای Railway (npm run preview)
+  // برای محیط deploy (npm run preview روی Railway)
   preview: {
     host: "0.0.0.0",
     port: 8080,
-    // دقیقاً دامین خودت رو اینجا می‌نویسیم
     allowedHosts: [
+      "localhost",
+      "127.0.0.1",
       "nil-journal.nilpapd.com",
-      "nil-journal.nilpapd.com:443",
-      "nil-journal.nilpapd.com:80",
     ],
   },
 });
