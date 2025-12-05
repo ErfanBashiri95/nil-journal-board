@@ -1,4 +1,4 @@
-import { useState, useRef,useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import deskBgDesktop from "./assets/journal-desk-bg.jpg";
 import deskBgMobile from "./assets/journal-desk-bg-mobile.jpg";
 import { supabase } from "./lib/supabaseClient";
@@ -36,8 +36,8 @@ export default function JournalTopicBoard({
   username,
   topicId,
   topicTitle,
-  onBack = () => {},
-  onExit = () => {},
+  onBack = () => { },
+  onExit = () => { },
 }) {
   const [activeId, setActiveId] = useState("text");
 
@@ -56,63 +56,63 @@ export default function JournalTopicBoard({
   // =========================
   const STORAGE_KEY_BASE = "nil_journal_files";
 
-const getStorageKey = () => {
-  const u = username || "guest";
-  const t = topicId || "default";
-  return `${STORAGE_KEY_BASE}__${u}__${t}`;
-};
-
-// 🟦 ذخیره‌ی هم‌زمان فایل‌ها + نوت‌ها
-const saveJournalStateToStorage = (nextFilesBySection, nextNotesList) => {
-  try {
-    if (typeof window === "undefined") return;
-    const key = getStorageKey();
-
-    const payload = {
-      text: nextFilesBySection?.text || [],
-      audio: nextFilesBySection?.audio || [],
-      media: nextFilesBySection?.media || [],
-      notes: nextNotesList || [],
-    };
-
-    window.localStorage.setItem(key, JSON.stringify(payload));
-  } catch (err) {
-    console.error("localStorage save error:", err);
-  }
-};
-
-const mapRowsToFilesBySection = (rows = []) => {
-  const bySection = {
-    text: [],
-    audio: [],
-    media: [],
+  const getStorageKey = () => {
+    const u = username || "guest";
+    const t = topicId || "default";
+    return `${STORAGE_KEY_BASE}__${u}__${t}`;
   };
 
-  rows.forEach((row) => {
-    const sec = row.section;
-    if (!bySection[sec]) return;
+  // 🟦 ذخیره‌ی هم‌زمان فایل‌ها + نوت‌ها
+  const saveJournalStateToStorage = (nextFilesBySection, nextNotesList) => {
+    try {
+      if (typeof window === "undefined") return;
+      const key = getStorageKey();
 
-    const base = {
-      id: row.id, // 👈 id واقعی Supabase
-      name: row.file_name,
-      type: row.file_type || "",
-      size: row.file_size || 0,
-      createdAt: row.created_at,
-      recorded: false,
-      fileObject: null,
-      url: row.url,
-      previewUrl: null,
+      const payload = {
+        text: nextFilesBySection?.text || [],
+        audio: nextFilesBySection?.audio || [],
+        media: nextFilesBySection?.media || [],
+        notes: nextNotesList || [],
+      };
+
+      window.localStorage.setItem(key, JSON.stringify(payload));
+    } catch (err) {
+      console.error("localStorage save error:", err);
+    }
+  };
+
+  const mapRowsToFilesBySection = (rows = []) => {
+    const bySection = {
+      text: [],
+      audio: [],
+      media: [],
     };
 
-    if (sec === "media" && row.file_type?.startsWith("image/")) {
-      base.previewUrl = row.url;
-    }
+    rows.forEach((row) => {
+      const sec = row.section;
+      if (!bySection[sec]) return;
 
-    bySection[sec].push(base);
-  });
+      const base = {
+        id: row.id, // 👈 id واقعی Supabase
+        name: row.file_name,
+        type: row.file_type || "",
+        size: row.file_size || 0,
+        createdAt: row.created_at,
+        recorded: false,
+        fileObject: null,
+        url: row.url,
+        previewUrl: null,
+      };
 
-  return bySection;
-};
+      if (sec === "media" && row.file_type?.startsWith("image/")) {
+        base.previewUrl = row.url;
+      }
+
+      bySection[sec].push(base);
+    });
+
+    return bySection;
+  };
 
 
   // =========================
@@ -138,7 +138,7 @@ const mapRowsToFilesBySection = (rows = []) => {
           });
           return;
         }
-  
+
         // ۱) تلاش برای خواندن از Supabase
         const { data, error } = await supabase
           .from("niljournal_files")
@@ -148,7 +148,7 @@ const mapRowsToFilesBySection = (rows = []) => {
           .eq("username", username)
           .eq("topic_id", topicId)
           .order("created_at", { ascending: true });
-  
+
         if (error) {
           console.error("Supabase load error:", error);
           // اگر خطا شد، fallback به localStorage
@@ -167,7 +167,7 @@ const mapRowsToFilesBySection = (rows = []) => {
           });
           return;
         }
-  
+
         if (data && data.length > 0) {
           const bySection = mapRowsToFilesBySection(data);
           setFilesBySection(bySection);
@@ -192,11 +192,11 @@ const mapRowsToFilesBySection = (rows = []) => {
         console.error("loadFiles unexpected error:", err);
       }
     };
-  
+
     loadFiles();
   }, [username, topicId]);
-  
-  
+
+
 
 
   // 🔹 منوی فایل (Rename/Delete)
@@ -222,13 +222,13 @@ const mapRowsToFilesBySection = (rows = []) => {
   const uploadRealFile = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
-  
+
     try {
       const res = await fetch("https://nilpapd.com/uploads/upload.php", {
         method: "POST",
         body: formData,
       });
-  
+
       const data = await res.json();
       if (data.success) {
         return data.url; // لینک نهایی فایل روی هاست
@@ -246,7 +246,7 @@ const mapRowsToFilesBySection = (rows = []) => {
   const persistFileRecord = async (sectionId, fileObj) => {
     try {
       if (!username || !topicId) return fileObj;
-  
+
       const { data, error } = await supabase
         .from("niljournal_files")
         .insert({
@@ -260,27 +260,27 @@ const mapRowsToFilesBySection = (rows = []) => {
         })
         .select("id")
         .single();
-  
+
       if (error) {
         console.error("Supabase insert error:", error);
         return fileObj;
       }
-  
+
       if (data?.id) {
         return { ...fileObj, id: data.id }; // 👈 id واقعی DB
       }
-  
+
       return fileObj;
     } catch (err) {
       console.error("persistFileRecord error:", err);
       return fileObj;
     }
   };
-  
+
 
   const deleteFileFromServer = async (fileUrl) => {
     if (!fileUrl) return;
-  
+
     try {
       await fetch("https://nilpapd.com/uploads/delete.php", {
         method: "POST",
@@ -297,21 +297,21 @@ const mapRowsToFilesBySection = (rows = []) => {
       console.error("server delete error", err);
     }
   };
-  
+
 
   const handleAddFiles = async (sectionId, fileList) => {
     const newFiles = Array.from(fileList || []);
     if (!newFiles.length) return;
-  
+
     const uploaded = [];
-  
+
     for (const f of newFiles) {
       const uploadedUrl = await uploadRealFile(f);
       if (!uploadedUrl) {
         console.warn("آپلود فایل شکست خورد:", f.name);
         continue;
       }
-  
+
       const id = `${sectionId}-${Date.now()}-${Math.random()}`;
       const fileObj = {
         id,
@@ -328,18 +328,18 @@ const mapRowsToFilesBySection = (rows = []) => {
             : null,
       };
       //گرفتن id واقعی و ثبت در supabase
-      const withDbId=await persistFileRecord(sectionId,fileObj);
-  
+      const withDbId = await persistFileRecord(sectionId, fileObj);
+
       uploaded.push(withDbId);
     }
-  
+
     if (uploaded.length > 0) {
       setFilesBySection((prev) => {
         const next = {
           ...prev,
           [sectionId]: [...prev[sectionId], ...uploaded],
         };
-        saveJournalStateToStorage(next,notesList); // ⭐ ذخیره در localStorage
+        saveJournalStateToStorage(next, notesList); // ⭐ ذخیره در localStorage
         return next;
       });
     }
@@ -374,15 +374,15 @@ const mapRowsToFilesBySection = (rows = []) => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         const name = `voice-${new Date().toLocaleTimeString("fa-IR")}.webm`;
         const file = new File([blob], name, { type: blob.type });
-      
+
         // ۱) آپلود روی هاست
         const uploadedUrl = await uploadRealFile(file);
-      
+
         if (!uploadedUrl) {
           alert("آپلود ویس روی سرور انجام نشد.");
           return;
         }
-      
+
         // ۲) ساخت آبجکت فایل مثل بقیه
         const fakeFile = {
           id: `audio-recorded-${Date.now()}`,
@@ -394,10 +394,10 @@ const mapRowsToFilesBySection = (rows = []) => {
           fileObject: file,
           url: uploadedUrl,
         };
-        
+
         // 🔹 ثبت در Supabase
         const withDbId = await persistFileRecord("audio", fakeFile);
-        
+
         setFilesBySection((prev) => {
           const next = {
             ...prev,
@@ -406,9 +406,9 @@ const mapRowsToFilesBySection = (rows = []) => {
           saveFilesToStorage(next);
           return next;
         });
-        
+
       };
-      
+
       mr.start();
       setIsRecording(true);
     } catch (err) {
@@ -430,25 +430,25 @@ const mapRowsToFilesBySection = (rows = []) => {
 
   const handleSaveNote = () => {
     if (!noteText.trim() && !noteTitle.trim()) return;
-  
+
     const newNote = {
       id: Date.now(),
       title: noteTitle.trim() || "نوت بدون عنوان",
       content: noteText.trim(),
       createdAt: new Date().toISOString(),
     };
-  
+
     setNotesList((prev) => {
       const updated = [...prev, newNote];
       // 🟦 فایل‌های فعلی + نوت‌های جدید
       saveJournalStateToStorage(filesBySection, updated);
       return updated;
     });
-  
+
     setNoteTitle("");
     setNoteText("");
   };
-  
+
 
   const handleDeleteNote = (id) => {
     setNotesList((prev) => {
@@ -456,14 +456,14 @@ const mapRowsToFilesBySection = (rows = []) => {
       saveJournalStateToStorage(filesBySection, updated); // 🟦
       return updated;
     });
-  
+
     if (editingNoteId === id) {
       setEditingNoteId(null);
       setEditingNoteText("");
       setEditingNoteTitle("");
     }
   };
-  
+
 
   const handleStartEditNote = (note) => {
     setEditingNoteId(note.id);
@@ -473,27 +473,27 @@ const mapRowsToFilesBySection = (rows = []) => {
 
   const handleSaveEditNote = () => {
     if (!editingNoteId) return;
-  
+
     setNotesList((prev) => {
       const updated = prev.map((n) =>
         n.id === editingNoteId
           ? {
-              ...n,
-              title: editingNoteTitle.trim() || n.title,
-              content: editingNoteText.trim() || n.content,
-            }
+            ...n,
+            title: editingNoteTitle.trim() || n.title,
+            content: editingNoteText.trim() || n.content,
+          }
           : n
       );
-  
+
       saveJournalStateToStorage(filesBySection, updated); // 🟦
       return updated;
     });
-  
+
     setEditingNoteId(null);
     setEditingNoteText("");
     setEditingNoteTitle("");
   };
-  
+
   const handleCancelEditNote = () => {
     setEditingNoteId(null);
     setEditingNoteText("");
@@ -525,11 +525,11 @@ const mapRowsToFilesBySection = (rows = []) => {
   const handleFileRename = async (sectionId, file) => {
     const currentName = file.name || "";
     const newName = window.prompt("نام جدید فایل:", currentName);
-  
+
     if (!newName || !newName.trim() || newName.trim() === currentName) return;
-  
+
     const finalName = newName.trim();
-  
+
     // ۱) آپدیت در Supabase (اگر فایل دیتابیس ذخیره شده باشد)
     if (file?.id) {
       try {
@@ -537,7 +537,7 @@ const mapRowsToFilesBySection = (rows = []) => {
           .from("niljournal_files")
           .update({ name: finalName })
           .eq("id", file.id);
-  
+
         if (error) {
           console.error("Supabase rename error:", error);
         }
@@ -545,7 +545,7 @@ const mapRowsToFilesBySection = (rows = []) => {
         console.error("Supabase rename exception:", err);
       }
     }
-  
+
     // ۲) آپدیت در state + ذخیره در localStorage
     setFilesBySection((prev) => {
       const next = {
@@ -554,12 +554,12 @@ const mapRowsToFilesBySection = (rows = []) => {
           f.id === file.id ? { ...f, name: finalName } : f
         ),
       };
-  
+
       saveJournalStateToStorage(next, notesList);
       return next;
     });
   };
-  
+
 
 
   // 🔹 حذف فایل از یک سکشن
@@ -568,7 +568,7 @@ const mapRowsToFilesBySection = (rows = []) => {
     if (file?.url) {
       deleteFileFromServer(file.url);
     }
-  
+
     // ۲) حذف رکورد از Supabase (اگر id دیتابیسی داشته باشد)
     if (file?.id) {
       try {
@@ -576,7 +576,7 @@ const mapRowsToFilesBySection = (rows = []) => {
           .from("niljournal_files")
           .delete()
           .eq("id", file.id);
-  
+
         if (error) {
           console.error("Supabase delete error:", error);
         }
@@ -584,23 +584,23 @@ const mapRowsToFilesBySection = (rows = []) => {
         console.error("Supabase delete exception:", err);
       }
     }
-  
+
     // ۳) حذف از state + به‌روزرسانی localStorage
     setFilesBySection((prev) => {
       const next = {
         ...prev,
         [sectionId]: prev[sectionId].filter((f) => f.id !== file.id),
       };
-  
-      
+
+
       saveJournalStateToStorage(next, notesList);
-  
+
       return next;
     });
   };
-  
-  
-  
+
+
+
 
   // 🔹 باز کردن منوی فایل (دابل‌کلیک / راست‌کلیک)
   const openFileMenu = (event, sectionId, file) => {
@@ -631,8 +631,8 @@ const mapRowsToFilesBySection = (rows = []) => {
       );
     }
 
-    
-    
+
+
 
     return (
       <div className="mt-2 pr-1 pb-2 scroll-area files-grid-wrapper">
@@ -644,7 +644,7 @@ const mapRowsToFilesBySection = (rows = []) => {
               onContextMenu={(e) => openFileMenu(e, sectionId, f)}
               onDoubleClick={(e) => openFileMenu(e, sectionId, f)}
               title="برای تغییر نام یا حذف، کلیک راست یا دابل‌کلیک کن"
-              onClick={()=>f.url && window.open(f.url,"_blank")}
+              onClick={() => f.url && window.open(f.url, "_blank")}
             >
               <div
                 className={
@@ -655,8 +655,8 @@ const mapRowsToFilesBySection = (rows = []) => {
                 }
               >
                 {sectionId === "media" &&
-                f.previewUrl &&
-                f.type?.startsWith("image/") ? (
+                  f.previewUrl &&
+                  f.type?.startsWith("image/") ? (
                   <img
                     src={f.previewUrl}
                     alt={f.name}
@@ -744,11 +744,10 @@ const mapRowsToFilesBySection = (rows = []) => {
               <button
                 type="button"
                 onClick={isRecording ? stopRecording : startRecording}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${
-                  isRecording
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${isRecording
                     ? "border-red-400 bg-red-500/20 text-red-100"
                     : "border-red-400/70 bg-red-400/10 text-red-100 hover:bg-red-400/20"
-                }`}
+                  }`}
               >
                 <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
                 {isRecording ? "توقف ضبط" : "شروع ضبط ویس"}
@@ -1064,11 +1063,10 @@ const mapRowsToFilesBySection = (rows = []) => {
                       key={sec.id}
                       type="button"
                       onClick={() => setActiveId(sec.id)}
-                      className={`group flex flex-col items-start justify-between rounded-2xl border px-2 py-1.5 md:px-3.5 md:py-3 text-right transition-all duration-200 ${
-                        active
+                      className={`group flex flex-col items-start justify-between rounded-2xl border px-2 py-1.5 md:px-3.5 md:py-3 text-right transition-all duration-200 ${active
                           ? "border-sky-400 bg-sky-400/15 shadow-[0_0_18px_rgba(56,189,248,0.45)] scale-[1.02]"
                           : "border-slate-600/70 bg-slate-900/70 hover:border-sky-400/70 hover:bg-slate-900"
-                      }`}
+                        }`}
                     >
                       <span className="text-[10px] md:text-sm font-semibold leading-tight line-clamp-2">
                         {sec.title}
