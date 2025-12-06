@@ -51,6 +51,12 @@ export default function JournalTopicBoard({
     audio: [],
     media: [],
   });
+
+  // 🔹 وضعیت آپلودهای در حال انجام
+  const [uploadProgressList, setUploadProgressList] = useState([]);
+
+
+
   // =========================
   // ذخیره لیست فایل‌ها در localStorage
   // =========================
@@ -288,29 +294,53 @@ export default function JournalTopicBoard({
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  const uploadRealFile = async (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
+  const uploadRealFile = async (file, onProgress) => {
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append("file", file);
 
-    try {
-      const res = await fetch("https://nilpapd.com/uploads/upload.php", {
-        method: "POST",
-        body: formData,
-      });
+      xhr.open("POST", "https://nilpapd.com/uploads/upload.php");
 
-      const data = await res.json();
-      if (data.success) {
-        return data.url; // لینک نهایی فایل روی هاست
-      } else {
-        alert("خطا در آپلود فایل روی سرور: " + data.message);
-        return null;
-      }
-    } catch (err) {
-      console.error(err);
-      alert("مشکل در ارتباط با سرور آپلود");
-      return null;
-    }
+      // 📊 پیشرفت آپلود
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        const percent = Math.round((event.loaded * 100) / event.total);
+        if (onProgress) onProgress(percent);
+      };
+
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) {
+          try {
+            const data = JSON.parse(xhr.responseText || "{}");
+            if (data.success && data.url) {
+              if (onProgress) onProgress(100);
+              resolve(data.url);
+            } else {
+              alert(
+                "خطا در آپلود فایل روی سرور" +
+                  (data.message ? ": " + data.message : "")
+              );
+              resolve(null);
+            }
+          } catch (err) {
+            console.error("upload parse error:", err);
+            alert("مشکل در پردازش پاسخ سرور آپلود.");
+            resolve(null);
+          }
+        }
+      };
+
+      xhr.onerror = () => {
+        console.error("upload network error");
+        alert("مشکل در ارتباط با سرور آپلود");
+        resolve(null);
+      };
+
+      xhr.send(formData);
+    });
   };
+
 
   const persistFileRecord = async (sectionId, fileObj) => {
     try {
@@ -388,15 +418,44 @@ export default function JournalTopicBoard({
     const uploaded = [];
 
     for (const f of newFiles) {
-      const uploadedUrl = await uploadRealFile(f);
+      // 🔹 یک id مخصوص برای نوار پیشرفت این فایل
+      const uploadId = `${sectionId}-upload-${Date.now()}-${Math.random()}`;
+
+      // ۱) اضافه کردن به لیست آپلودهای در حال انجام
+      setUploadProgressList((prev) => [
+        ...prev,
+        {
+          id: uploadId,
+          name: f.name,
+          sectionId,
+          progress: 0,
+          status: "uploading", // "uploading" | "done" | "error"
+        },
+      ]);
+
+      // ۲) آپلود با گزارش درصد
+      const uploadedUrl = await uploadRealFile(f, (pct) => {
+        setUploadProgressList((prev) =>
+          prev.map((u) =>
+            u.id === uploadId ? { ...u, progress: pct } : u
+          )
+        );
+      });
+
+      // اگر آپلود شکست خورد
       if (!uploadedUrl) {
-        console.warn("آپلود فایل شکست خورد:", f.name);
+        setUploadProgressList((prev) =>
+          prev.map((u) =>
+            u.id === uploadId ? { ...u, status: "error" } : u
+          )
+        );
         continue;
       }
 
-      const id = `${sectionId}-${Date.now()}-${Math.random()}`;
-      const fileObj = {
-        id,
+      // ۳) ساخت آبجکت فایل
+      const tempId = `${sectionId}-${Date.now()}-${Math.random()}`;
+      let fileObj = {
+        id: tempId,
         name: f.name,
         size: f.size,
         type: f.type,
@@ -409,23 +468,40 @@ export default function JournalTopicBoard({
             ? uploadedUrl
             : null,
       };
-      //گرفتن id واقعی و ثبت در supabase
-      const withDbId = await persistFileRecord(sectionId, fileObj);
 
+      // ۴) ثبت در Supabase و گرفتن id واقعی
+      const withDbId = await persistFileRecord(sectionId, fileObj);
       uploaded.push(withDbId);
+
+      // ۵) نوار پیشرفت → ۱۰۰٪ و بعد محو
+      setUploadProgressList((prev) =>
+        prev.map((u) =>
+          u.id === uploadId
+            ? { ...u, progress: 100, status: "done" }
+            : u
+        )
+      );
+
+      setTimeout(() => {
+        setUploadProgressList((prev) =>
+          prev.filter((u) => u.id !== uploadId)
+        );
+      }, 800);
     }
 
+    // ۶) اضافه کردن فایل‌های موفق به state + localStorage
     if (uploaded.length > 0) {
       setFilesBySection((prev) => {
         const next = {
           ...prev,
           [sectionId]: [...prev[sectionId], ...uploaded],
         };
-        saveJournalStateToStorage(next, notesList); // ⭐ ذخیره در localStorage
+        saveJournalStateToStorage(next, notesList);
         return next;
       });
     }
   };
+
 
 
   const handleDrop = (e, sectionId) => {
@@ -796,6 +872,53 @@ export default function JournalTopicBoard({
       </div>
     );
   };
+
+  const renderUploadProgress = () => {
+    if (!uploadProgressList.length) return null;
+
+    return (
+      <div className="mb-2 space-y-1">
+        {uploadProgressList.map((u) => (
+          <div
+            key={u.id}
+            className={`flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] md:text-xs
+                        shadow-[0_0_14px_rgba(56,189,248,0.45)]
+            ${
+              u.status === "error"
+                ? "bg-rose-900/70 border-rose-500/70 text-rose-100"
+                : "bg-slate-900/80 border-sky-500/70 text-sky-100"
+            }`}
+          >
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate max-w-[150px] md:max-w-[220px]">
+                  {u.name}
+                </span>
+
+                {u.status === "error" ? (
+                  <span className="text-[9px] md:text-[10px]">
+                    خطا
+                  </span>
+                ) : (
+                  <span className="tabular-nums">{u.progress}%</span>
+                )}
+              </div>
+
+              {u.status !== "error" && (
+                <div className="mt-1 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-sky-400 transition-[width] duration-150 ease-out"
+                    style={{ width: `${u.progress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
 
   const renderPanel = () => {
     if (activeId === "text") {
@@ -1168,6 +1291,9 @@ export default function JournalTopicBoard({
                 NIL Journal Board • {topicName}
               </div>
             </div>
+
+            {/*نوارهای پیشرفت آپلود فایل ها*/}
+            {renderUploadProgress()}
 
             {/* بدنه */}
             <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-3 md:gap-4">
