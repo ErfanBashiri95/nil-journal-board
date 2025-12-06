@@ -116,8 +116,8 @@ export default function JournalTopicBoard({
               url: row.url,
               previewUrl:
                 row.section === "media" &&
-                row.file_type &&
-                row.file_type.startsWith("image/")
+                  row.file_type &&
+                  row.file_type.startsWith("image/")
                   ? row.url
                   : null,
             });
@@ -147,10 +147,10 @@ export default function JournalTopicBoard({
         const finalFiles = hasRemoteFiles
           ? remoteFiles
           : filesFromStorage || {
-              text: [],
-              audio: [],
-              media: [],
-            };
+            text: [],
+            audio: [],
+            media: [],
+          };
 
         setFilesBySection(finalFiles);
         setNotesList(notesFromStorage);
@@ -731,8 +731,8 @@ export default function JournalTopicBoard({
                 type="button"
                 onClick={isRecording ? stopRecording : startRecording}
                 className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[10px] md:text-xs transition ${isRecording
-                    ? "border-red-400 bg-red-500/20 text-red-100"
-                    : "border-red-400/70 bg-red-400/10 text-red-100 hover:bg-red-400/20"
+                  ? "border-red-400 bg-red-500/20 text-red-100"
+                  : "border-red-400/70 bg-red-400/10 text-red-100 hover:bg-red-400/20"
                   }`}
               >
                 <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse" />
@@ -1050,8 +1050,8 @@ export default function JournalTopicBoard({
                       type="button"
                       onClick={() => setActiveId(sec.id)}
                       className={`group flex flex-col items-start justify-between rounded-2xl border px-2 py-1.5 md:px-3.5 md:py-3 text-right transition-all duration-200 ${active
-                          ? "border-sky-400 bg-sky-400/15 shadow-[0_0_18px_rgba(56,189,248,0.45)] scale-[1.02]"
-                          : "border-slate-600/70 bg-slate-900/70 hover:border-sky-400/70 hover:bg-slate-900"
+                        ? "border-sky-400 bg-sky-400/15 shadow-[0_0_18px_rgba(56,189,248,0.45)] scale-[1.02]"
+                        : "border-slate-600/70 bg-slate-900/70 hover:border-sky-400/70 hover:bg-slate-900"
                         }`}
                     >
                       <span className="text-[10px] md:text-sm font-semibold leading-tight line-clamp-2">
