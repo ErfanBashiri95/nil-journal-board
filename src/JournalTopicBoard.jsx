@@ -79,134 +79,187 @@ export default function JournalTopicBoard({
     }
   };
 
+  // =========================
+  // توابع کمکی برای نوت‌ها در Supabase
+  // =========================
+  const persistNoteRecord = async (note) => {
+    try {
+      if (!username || !topicId) return note;
+
+      const { data, error } = await supabase
+        .from("niljournal_notes")
+        .insert({
+          username,
+          topic_id: topicId,
+          title: note.title,
+          content: note.content,
+        })
+        .select("id, created_at")
+        .single();
+
+      if (error) {
+        console.error("Supabase insert note error:", error);
+        return note;
+      }
+
+      return {
+        ...note,
+        id: data.id,
+        createdAt: data.created_at,
+      };
+    } catch (err) {
+      console.error("persistNoteRecord error:", err);
+      return note;
+    }
+  };
+
+  const updateNoteRecord = async (id, patch) => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .from("niljournal_notes")
+        .update({
+          ...patch,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Supabase update note error:", error);
+      }
+    } catch (err) {
+      console.error("updateNoteRecord error:", err);
+    }
+  };
+
+  const deleteNoteRecord = async (id) => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .from("niljournal_notes")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error("Supabase delete note error:", error);
+      }
+    } catch (err) {
+      console.error("deleteNoteRecord error:", err);
+    }
+  };
+
+
   
   // =========================
-// لود کردن وضعیت از Supabase + localStorage هنگام ورود
-// =========================
-useEffect(() => {
-  if (!username) return;
+  // لود کردن وضعیت از Supabase + localStorage هنگام ورود
+  // =========================
+  useEffect(() => {
+    // اگر هنوز username یا topicId نداریم، کاری نکن
+    if (!username || !topicId) return;
 
-  const loadState = async () => {
-    try {
-      let remoteFiles = {
-        text: [],
-        audio: [],
-        media: [],
-      };
-
-      // 🔹 ۱) اول سعی می‌کنیم با username + topicId بخوانیم (اگر topicId داریم)
-      let rows = [];
-
-      if (topicId) {
-        const { data, error } = await supabase
+    const loadState = async () => {
+      try {
+        // ۱) فایل‌ها از Supabase
+        const { data: filesData, error: filesError } = await supabase
           .from("niljournal_files")
           .select("*")
-          .ilike("username", username) // حروف بزرگ/کوچیک مهم نباشد
+          .eq("username", username)
           .eq("topic_id", topicId)
           .order("created_at", { ascending: true });
 
-        console.log("load by username+topicId =>", { username, topicId, data, error });
+        let remoteFiles = {
+          text: [],
+          audio: [],
+          media: [],
+        };
 
-        if (!error && data) {
-          rows = data;
+        if (!filesError && filesData && filesData.length > 0) {
+          filesData.forEach((row) => {
+            if (!remoteFiles[row.section]) return;
+
+            remoteFiles[row.section].push({
+              id: row.id, // 👈 id واقعی از دیتابیس
+              name: row.file_name,
+              type: row.file_type,
+              size: row.file_size,
+              createdAt: row.created_at,
+              recorded: false,
+              url: row.url,
+              previewUrl:
+                row.section === "media" &&
+                row.file_type &&
+                row.file_type.startsWith("image/")
+                  ? row.url
+                  : null,
+            });
+          });
         }
-      }
 
-      // 🔹 ۲) اگر با topicId چیزی پیدا نشد، فقط با username بخوان
-      if (!rows || rows.length === 0) {
-        const { data, error } = await supabase
-          .from("niljournal_files")
+        // ۲) نوت‌ها از Supabase
+        const { data: notesData, error: notesError } = await supabase
+          .from("niljournal_notes")
           .select("*")
-          .ilike("username", username)
+          .eq("username", username)
+          .eq("topic_id", topicId)
           .order("created_at", { ascending: true });
 
-        console.log("load by username only =>", { username, data, error });
-
-        if (!error && data) {
-          rows = data;
-        }
-      }
-
-      // 🔹 ۳) تبدیل rows به ساختار filesBySection
-      if (rows && rows.length > 0) {
-        rows.forEach((row) => {
-          if (!remoteFiles[row.section]) return;
-
-          remoteFiles[row.section].push({
-            id: row.id, // id واقعی DB
-            name: row.file_name,
-            type: row.file_type,
-            size: row.file_size,
+        let remoteNotes = [];
+        if (!notesError && notesData && notesData.length > 0) {
+          remoteNotes = notesData.map((row) => ({
+            id: row.id,
+            title: row.title || "نوت بدون عنوان",
+            content: row.content || "",
             createdAt: row.created_at,
-            recorded: false,
-            url: row.url,
-            previewUrl:
-              row.section === "media" &&
-              row.file_type &&
-              row.file_type.startsWith("image/")
-                ? row.url
-                : null,
-          });
-        });
-      }
-
-      // 🔹 ۴) نوت‌ها را از localStorage می‌خوانیم
-      let notesFromStorage = [];
-      if (typeof window !== "undefined") {
-        const key = getStorageKey();
-        const raw = window.localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw) || {};
-          notesFromStorage = parsed.notesList || [];
+          }));
         }
-      }
 
-      // 🔹 ۵) اگر حداقل یک فایل از DB داریم، از همان‌ها استفاده کن
-      const hasRemoteFiles = Object.values(remoteFiles).some(
-        (arr) => arr && arr.length > 0
-      );
+        // ۳) localStorage (برای fallback)
+        let notesFromStorage = [];
+        let filesFromStorage = null;
 
-      const finalFiles = hasRemoteFiles
-        ? remoteFiles
-        : {
-            text: [],
-            audio: [],
-            media: [],
-          };
-
-      setFilesBySection(finalFiles);
-      setNotesList(notesFromStorage);
-
-      // 🔹 ۶) برای هم‌سان‌سازی، همین را در localStorage هم ذخیره کن
-      saveJournalStateToStorage(finalFiles, notesFromStorage);
-    } catch (err) {
-      console.error("loadState error:", err);
-
-      // اگر supabase کلاً fail شد، فقط از localStorage لود کن
-      try {
         if (typeof window !== "undefined") {
           const key = getStorageKey();
           const raw = window.localStorage.getItem(key);
           if (raw) {
             const parsed = JSON.parse(raw) || {};
-            setFilesBySection(
-              parsed.filesBySection || {
-                text: [],
-                audio: [],
-                media: [],
-              }
-            );
-            setNotesList(parsed.notesList || []);
+            filesFromStorage = parsed.filesBySection || null;
+            notesFromStorage = parsed.notesList || [];
           }
         }
-      } catch (e) {
-        console.error("fallback localStorage error:", e);
-      }
-    }
-  };
 
-  loadState();
-}, [username, topicId]);
+        // ۴) انتخاب منبع نهایی فایل‌ها
+        const hasRemoteFiles = Object.values(remoteFiles).some(
+          (arr) => arr && arr.length > 0
+        );
+
+        const finalFiles = hasRemoteFiles
+          ? remoteFiles
+          : filesFromStorage || {
+              text: [],
+              audio: [],
+              media: [],
+            };
+
+        // ۵) انتخاب منبع نهایی نوت‌ها
+        const finalNotes =
+          remoteNotes.length > 0 ? remoteNotes : notesFromStorage || [];
+
+        // ۶) ست‌کردن state
+        setFilesBySection(finalFiles);
+        setNotesList(finalNotes);
+
+        // ۷) هم‌سان‌سازی localStorage با وضعیت نهایی
+        saveJournalStateToStorage(finalFiles, finalNotes);
+      } catch (err) {
+        console.error("loadState error:", err);
+      }
+    };
+
+    loadState();
+  }, [username, topicId]);
+
 
 
 
@@ -460,19 +513,24 @@ useEffect(() => {
     setIsRecording(false);
   };
 
-  const handleSaveNote = () => {
+  const handleSaveNote = async () => {
     if (!noteText.trim() && !noteTitle.trim()) return;
 
-    const newNote = {
-      id: Date.now(),
+    // نوت خام (قبل از ذخیره در دیتابیس)
+    const baseNote = {
+      // فعلاً id خالی می‌ذاریم، بعد از DB می‌گیریم
+      id: null,
       title: noteTitle.trim() || "نوت بدون عنوان",
       content: noteText.trim(),
       createdAt: new Date().toISOString(),
     };
 
+    // اول تلاش برای ثبت در Supabase
+    const noteWithDbId = await persistNoteRecord(baseNote);
+
+    // حالا در state ذخیره می‌کنیم
     setNotesList((prev) => {
-      const updated = [...prev, newNote];
-      // 🟦 فایل‌های فعلی + نوت‌های جدید
+      const updated = [...prev, noteWithDbId];
       saveJournalStateToStorage(filesBySection, updated);
       return updated;
     });
@@ -482,10 +540,15 @@ useEffect(() => {
   };
 
 
-  const handleDeleteNote = (id) => {
+
+  const handleDeleteNote = async (id) => {
+    // ۱) حذف از دیتابیس
+    await deleteNoteRecord(id);
+
+    // ۲) حذف از state + localStorage
     setNotesList((prev) => {
       const updated = prev.filter((n) => n.id !== id);
-      saveJournalStateToStorage(filesBySection, updated); // 🟦
+      saveJournalStateToStorage(filesBySection, updated);
       return updated;
     });
 
@@ -503,21 +566,31 @@ useEffect(() => {
     setEditingNoteText(note.content || "");
   };
 
-  const handleSaveEditNote = () => {
+  const handleSaveEditNote = async () => {
     if (!editingNoteId) return;
 
+    const trimmedTitle = editingNoteTitle.trim();
+    const trimmedContent = editingNoteText.trim();
+
+    // ۱) آپدیت روی Supabase
+    await updateNoteRecord(editingNoteId, {
+      title: trimmedTitle || "نوت بدون عنوان",
+      content: trimmedContent,
+    });
+
+    // ۲) آپدیت روی state + localStorage
     setNotesList((prev) => {
       const updated = prev.map((n) =>
         n.id === editingNoteId
           ? {
-            ...n,
-            title: editingNoteTitle.trim() || n.title,
-            content: editingNoteText.trim() || n.content,
-          }
+              ...n,
+              title: trimmedTitle || "نوت بدون عنوان",
+              content: trimmedContent,
+            }
           : n
       );
 
-      saveJournalStateToStorage(filesBySection, updated); // 🟦
+      saveJournalStateToStorage(filesBySection, updated);
       return updated;
     });
 
