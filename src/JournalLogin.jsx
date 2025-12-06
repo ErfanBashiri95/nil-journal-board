@@ -124,7 +124,7 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
 
   const handleContinue = async () => {
     const raw = (username || "").trim();
-  
+
     if (!raw) {
       setErrorMsg(
         isFa
@@ -133,48 +133,48 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
       );
       return;
     }
-  
+
     setErrorMsg("");
     setLoading(true);
-  
+
     try {
       const normalized = raw.toLowerCase();
-  
+
       // 🔹 مرحله ۱ — تلاش اول: لیست محلی (LOCAL_TOPICS)
       const local = findLocalTopics(normalized);
-  
+
       if (local && local.length > 0) {
         console.log("LOCAL TOPIC FOUND:", local);
-  
+
         setLoading(false);
         setUsername(local[0].username);
-  
+
         const payload =
           local.length === 1
             ? {
-                mode: "single",
-                username: local[0].username,
-                topics: local,
-              }
+              mode: "single",
+              username: local[0].username,
+              topics: local,
+            }
             : {
-                mode: "multi",
-                username: local[0].username,
-                topics: local,
-              };
-  
+              mode: "multi",
+              username: local[0].username,
+              topics: local,
+            };
+
         onContinue?.(payload);
         return; // ✔ پایان — دیگر supabase لازم نیست
       }
-  
+
       // 🔹 مرحله ۲ — اگر در لیست نبود، برو سراغ Supabase
       const { data, error } = await supabase
         .from("niljournal_topics")
         .select("id, username, topic_title, created_at")
         .ilike("username", normalized)
         .order("created_at", { ascending: true });
-  
+
       setLoading(false);
-  
+
       if (error) {
         console.error("Supabase error:", error);
         setErrorMsg(
@@ -184,7 +184,7 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
         );
         return;
       }
-  
+
       if (!data || data.length === 0) {
         setErrorMsg(
           isFa
@@ -193,14 +193,14 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
         );
         return;
       }
-  
+
       setUsername(data[0].username);
-  
+
       const payload =
         data.length === 1
           ? { mode: "single", username: data[0].username, topics: data }
           : { mode: "multi", username: data[0].username, topics: data };
-  
+
       onContinue?.(payload);
     } catch (err) {
       console.error("Unexpected error:", err);
@@ -210,7 +210,7 @@ function JournalLogin({ isFa, username, setUsername, onBack, onContinue }) {
       );
     }
   };
-  
+
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !loading) {
