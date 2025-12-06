@@ -82,88 +82,137 @@ export default function JournalTopicBoard({
   // =========================
   // لود کردن وضعیت از localStorage هنگام ورود
   // =========================
+  // =========================
+  // لود وضعیت: اول از localStorage، بعد تلاش برای Supabase
+  // =========================
   useEffect(() => {
-    // اگر هنوز username یا topicId نداریم، کاری نکن
-    if (!username || !topicId) return;
+    // ۱) همیشه اول localStorage را بخوانیم (حتی اگر Supabase فیلتر باشد)
+    let notesFromStorage = [];
+    let filesFromStorage = {
+      text: [],
+      audio: [],
+      media: [],
+    };
 
-    const loadState = async () => {
+    try {
+      if (typeof window !== "undefined") {
+        const key = getStorageKey();
+        const raw = window.localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw) || {};
+          filesFromStorage =
+            parsed.filesBySection || filesFromStorage;
+          notesFromStorage = parsed.notesList || [];
+        }
+      }
+    } catch (err) {
+      console.error("localStorage load error:", err);
+    }
+
+    // state اولیه → از localStorage
+    setFilesBySection(filesFromStorage);
+    setNotesList(notesFromStorage);
+
+    // اگر username نداریم، اصلاً به سراغ DB نرو
+    if (!username) return;
+
+    let cancelled = false;
+
+    const loadFromDb = async () => {
       try {
-        // ۱) اول از Supabase فایل‌ها را می‌خوانیم
-        const { data, error } = await supabase
-          .from("niljournal_files")
-          .select("*")
-          .eq("username", username)
-          .eq("topic_id", topicId)
-          .order("created_at", { ascending: true });
+        let data = [];
+        let error = null;
 
-        let remoteFiles = {
+        // ۲) تلاش اول: همین topicId (حالت جدید)
+        if (topicId) {
+          const resp = await supabase
+            .from("niljournal_files")
+            .select("*")
+            .eq("username", username)
+            .eq("topic_id", topicId)
+            .order("created_at", { ascending: true });
+
+          data = resp.data || [];
+          error = resp.error;
+
+          // ۳) اگر برای این topicId چیزی نبود → تلاش دوم: فقط بر اساس username
+          // (برای سازگاری با رکوردهای قدیمی)
+          if (!error && data.length === 0) {
+            const resp2 = await supabase
+              .from("niljournal_files")
+              .select("*")
+              .eq("username", username)
+              .order("created_at", { ascending: true });
+
+            if (!resp2.error && resp2.data?.length) {
+              data = resp2.data;
+              error = null;
+            }
+          }
+        } else {
+          // اگر topicId نداریم، کل فایل‌های این یوزر را بیاور
+          const resp = await supabase
+            .from("niljournal_files")
+            .select("*")
+            .eq("username", username)
+            .order("created_at", { ascending: true });
+
+          data = resp.data || [];
+          error = resp.error;
+        }
+
+        if (error) {
+          console.error("Supabase load files error:", error);
+          return;
+        }
+
+        if (cancelled || !data.length) return;
+
+        const remoteFiles = {
           text: [],
           audio: [],
           media: [],
         };
 
-        if (!error && data && data.length > 0) {
-          data.forEach((row) => {
-            if (!remoteFiles[row.section]) return;
+        data.forEach((row) => {
+          const section = row.section;
+          if (!remoteFiles[section]) return;
 
-            remoteFiles[row.section].push({
-              id: row.id, // 👈 id واقعی از دیتابیس
-              name: row.file_name,
-              type: row.file_type,
-              size: row.file_size,
-              createdAt: row.created_at,
-              recorded: false,
-              url: row.url,
-              previewUrl:
-                row.section === "media" &&
-                  row.file_type &&
-                  row.file_type.startsWith("image/")
-                  ? row.url
-                  : null,
-            });
+          remoteFiles[section].push({
+            id: row.id,
+            name: row.file_name,
+            type: row.file_type,
+            size: row.file_size,
+            createdAt: row.created_at,
+            recorded: false,
+            url: row.url,
+            previewUrl:
+              section === "media" &&
+              row.file_type &&
+              row.file_type.startsWith("image/")
+                ? row.url
+                : null,
           });
-        }
+        });
 
-        // ۲) نوت‌ها (و در صورت نیاز فایل‌ها) را از localStorage می‌خوانیم
-        let notesFromStorage = [];
-        let filesFromStorage = null;
+        if (cancelled) return;
 
-        if (typeof window !== "undefined") {
-          const key = getStorageKey();
-          const raw = window.localStorage.getItem(key);
-          if (raw) {
-            const parsed = JSON.parse(raw) || {};
-            filesFromStorage = parsed.filesBySection || null;
-            notesFromStorage = parsed.notesList || [];
-          }
-        }
-
-        // ۳) اگر Supabase فایل داشت → از همون استفاده کن
-        // اگر Supabase خالی بود → از localStorage استفاده کن
-        const hasRemoteFiles = Object.values(remoteFiles).some(
-          (arr) => arr && arr.length > 0
-        );
-
-        const finalFiles = hasRemoteFiles
-          ? remoteFiles
-          : filesFromStorage || {
-            text: [],
-            audio: [],
-            media: [],
-          };
-
-        setFilesBySection(finalFiles);
-        setNotesList(notesFromStorage);
-
-        // ۴) برای هم‌سان‌سازی، همین وضعیت را دوباره در localStorage ذخیره می‌کنیم
-        saveJournalStateToStorage(finalFiles, notesFromStorage);
+        // ۴) اگر DB جواب داد، می‌شود منبع اصلی فایل‌ها
+        setFilesBySection(remoteFiles);
+        // برای sync، همین وضعیت را در localStorage هم ذخیره می‌کنیم
+        saveJournalStateToStorage(remoteFiles, notesFromStorage);
       } catch (err) {
-        console.error("loadState error:", err);
+        console.error("loadFromDb error:", err);
       }
     };
 
-    loadState();
+    loadFromDb();
+
+    return () => {
+      cancelled = true;
+    };
   }, [username, topicId]);
+
 
 
 
@@ -216,7 +265,13 @@ export default function JournalTopicBoard({
 
   const persistFileRecord = async (sectionId, fileObj) => {
     try {
-      if (!username || !topicId) return fileObj;
+      if (!username || !topicId) {
+        console.warn("persistFileRecord: missing username/topicId", {
+          username,
+          topicId,
+        });
+        return fileObj;
+      }
 
       const { data, error } = await supabase
         .from("niljournal_files")
@@ -247,6 +302,7 @@ export default function JournalTopicBoard({
       return fileObj;
     }
   };
+
 
 
   const deleteFileFromServer = async (fileUrl) => {
