@@ -1,5 +1,3 @@
-// src/utils/printPdf.js
-
 export function openPrintWindow(title = "NIL Article") {
   const w = window.open("", "_blank");
   if (!w) throw new Error("Pop-up blocked! لطفاً Pop-up را اجازه بده.");
@@ -33,6 +31,7 @@ export function openPrintWindow(title = "NIL Article") {
 export async function renderAndPrintInWindow(printWin, article, filename, isFa) {
   const watermarkText = "NIL JOURNAL";
 
+  // --- basic escape for head/title etc.
   const safe = (v) =>
     String(v ?? "").replace(/[&<>"]/g, (c) => ({
       "&": "&amp;",
@@ -41,8 +40,27 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       '"': "&quot;",
     }[c]));
 
-  // ✅ فقط پاراگراف‌هایی را نگه می‌داریم که حداقل یک پایان جمله واقعی دارند
-  // (بدون اضافه کردن نقطه)
+  // ✅ decode html entities like &quot; &amp; ...
+  function decodeEntities(str) {
+    const s = String(str ?? "");
+    if (!s.includes("&")) return s;
+    const txt = document.createElement("textarea");
+    txt.innerHTML = s;
+    return txt.value;
+  }
+
+  // ✅ fix Persian spacing like مقالهها -> مقاله ها
+  const fixPersianSpacing = (text) => {
+    let t = String(text || "");
+    t = t.replace(
+      /([\u0600-\u06FF])ها(یی|ی|یم|یت|یش|مان|تان|شان)?\b/g,
+      (m, p1, p2) => `${p1} ها${p2 || ""}`
+    );
+    t = t.replace(/([\u0600-\u06FF])(ترین|تر)\b/g, "$1 $2");
+    return t;
+  };
+
+  // ✅ keep only complete sentences (remove no-ending fragments)
   const trimToLastSentenceEnd = (text) => {
     const t = String(text ?? "").replace(/\r/g, "").trim();
     if (!t) return "";
@@ -63,7 +81,7 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
         let m;
         while ((m = endRe.exec(s)) !== null) lastIdx = m.index;
 
-        if (lastIdx < 0) return ""; // اگر پایان جمله ندارد، حذفش کن
+        if (lastIdx < 0) return ""; // no sentence end => drop
         return s.slice(0, lastIdx + 1).trim();
       })
       .filter(Boolean);
@@ -75,10 +93,18 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
   const author = safe(article?.author || "");
   const date = safe(article?.date || "");
 
-  const intro = safe(trimToLastSentenceEnd(article?.intro || ""));
-  const body = safe(trimToLastSentenceEnd(article?.body || ""));
-  const conclusion = safe(trimToLastSentenceEnd(article?.conclusion || ""));
-  const references = safe(String(article?.references || "").trim());
+  // ✅ decode + trim + fix spacing
+  const intro = fixPersianSpacing(
+    decodeEntities(trimToLastSentenceEnd(article?.intro || ""))
+  );
+  const body = fixPersianSpacing(
+    decodeEntities(trimToLastSentenceEnd(article?.body || ""))
+  );
+  const conclusion = fixPersianSpacing(
+    decodeEntities(trimToLastSentenceEnd(article?.conclusion || ""))
+  );
+
+  const references = decodeEntities(String(article?.references || "").trim());
 
   const html = `<!doctype html>
 <html lang="${isFa ? "fa" : "en"}" dir="${isFa ? "rtl" : "ltr"}">
@@ -110,13 +136,11 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       page-break-after: always;
       overflow: hidden;
 
-      /* ✅ کلید: ارتفاع واقعی با Flex (نه calc میلیمتری) */
       display: flex;
       flex-direction: column;
     }
     .sheet:last-child { page-break-after: auto; }
 
-    /* Border ONLY left & right */
     .border-l, .border-r {
       position: absolute;
       top: 14mm;
@@ -154,11 +178,9 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       position: relative;
       z-index: 2;
       box-sizing: border-box;
-
-      /* ✅ کلید: این باعث میشه همیشه دقیق تا قبل فوتر فضا داشته باشیم */
       flex: 1 1 auto;
       overflow: hidden;
-      padding-bottom: 4mm; /* فقط کمی فاصله */
+      padding-bottom: 4mm;
     }
 
     .footer {
@@ -203,6 +225,16 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
   <div id="pages"></div>
 
   <script>
+    const INTRO = ${JSON.stringify(intro)};
+    const BODY = ${JSON.stringify(body)};
+    const CONCLUSION = ${JSON.stringify(conclusion)};
+    const REFERENCES = ${JSON.stringify(references)};
+    const IS_FA = ${JSON.stringify(!!isFa)};
+    const WATERMARK = ${JSON.stringify(watermarkText)};
+    const TITLE = ${JSON.stringify(title)};
+    const AUTHOR = ${JSON.stringify(author)};
+    const DATE = ${JSON.stringify(date)};
+
     function createSheet() {
       const sheet = document.createElement("div");
       sheet.className = "sheet";
@@ -210,7 +242,7 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       const watermark = document.createElement("div");
       watermark.className = "watermark";
       const w = document.createElement("span");
-      w.textContent = "${safe(watermarkText)}";
+      w.textContent = WATERMARK;
       watermark.appendChild(w);
 
       const borderL = document.createElement("div");
@@ -224,7 +256,7 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
 
       const footer = document.createElement("div");
       footer.className = "footer";
-      footer.innerHTML = '${isFa ? "صفحه " : "Page "} <span class="pno"></span>';
+      footer.innerHTML = (IS_FA ? "صفحه " : "Page ") + '<span class="pno"></span>';
 
       sheet.appendChild(watermark);
       sheet.appendChild(borderL);
@@ -235,7 +267,30 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       return { sheet, content };
     }
 
-    // ✅ هر بخش را به h2 + چند p خرد می‌کنیم تا صفحه‌بندی دقیق شود
+    // ✅ split long paragraph into several smaller paragraphs by sentence boundaries
+    function splitLongParagraph(ptxt, maxChars = 520) {
+      const s = String(ptxt || "").replace(/\\s+/g, " ").trim();
+      if (!s) return [];
+      if (s.length <= maxChars) return [s];
+
+      const parts = s.split(/(?<=[\\.!\\?؟…\\u06D4])\\s+/g).map(x => x.trim()).filter(Boolean);
+      const out = [];
+      let buf = "";
+
+      for (const sen of parts) {
+        if (!buf) { buf = sen; continue; }
+        if ((buf + " " + sen).length > maxChars) {
+          out.push(buf);
+          buf = sen;
+        } else {
+          buf += " " + sen;
+        }
+      }
+      if (buf) out.push(buf);
+
+      return out.filter(Boolean);
+    }
+
     function makeSectionNodes(title, text) {
       const nodes = [];
       const h2 = document.createElement("div");
@@ -252,11 +307,15 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
         .filter(Boolean);
 
       for (const ptxt of paras) {
-        const p = document.createElement("div");
-        p.className = "p";
-        p.textContent = ptxt;
-        nodes.push(p);
+        const smallParas = splitLongParagraph(ptxt, 520);
+        for (const sp of smallParas) {
+          const p = document.createElement("div");
+          p.className = "p";
+          p.textContent = sp;
+          nodes.push(p);
+        }
       }
+
       return nodes;
     }
 
@@ -266,27 +325,26 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       const header = document.createElement("div");
       header.className = "header";
       header.innerHTML = \`
-        <h1>${title}</h1>
+        <h1>\${TITLE}</h1>
         <div class="meta">
-          <div>${isFa ? "نویسنده: " : "Author: "}${author}</div>
-          <div>${isFa ? "تاریخ: " : "Date: "}${date}</div>
+          <div>\${IS_FA ? "نویسنده: " : "Author: "}\${AUTHOR}</div>
+          <div>\${IS_FA ? "تاریخ: " : "Date: "}\${DATE}</div>
         </div>
       \`;
       nodes.push(header);
 
-      nodes.push(...makeSectionNodes("${isFa ? "۱. مقدمه" : "1. Introduction"}", ${JSON.stringify(intro)}));
-      nodes.push(...makeSectionNodes("${isFa ? "۲. بدنه و تحلیل" : "2. Body & Analysis"}", ${JSON.stringify(body)}));
-      nodes.push(...makeSectionNodes("${isFa ? "۳. نتیجه‌گیری" : "3. Conclusion"}", ${JSON.stringify(conclusion)}));
+      nodes.push(...makeSectionNodes(IS_FA ? "۱. مقدمه" : "1. Introduction", INTRO));
+      nodes.push(...makeSectionNodes(IS_FA ? "۲. بدنه و تحلیل" : "2. Body & Analysis", BODY));
+      nodes.push(...makeSectionNodes(IS_FA ? "۳. نتیجه‌گیری" : "3. Conclusion", CONCLUSION));
 
-      // references (حالت br)
       const refTitle = document.createElement("div");
       refTitle.className = "h2";
-      refTitle.textContent = "${isFa ? "۴. منابع" : "4. References"}";
+      refTitle.textContent = IS_FA ? "۴. منابع" : "4. References";
       nodes.push(refTitle);
 
       const ref = document.createElement("div");
       ref.className = "p";
-      ref.innerHTML = ${JSON.stringify(references)}.replace(/\\n+/g, "<br/>");
+      ref.innerHTML = (REFERENCES || "—").replace(/\\n+/g, "<br/>");
       nodes.push(ref);
 
       return nodes;
@@ -328,11 +386,19 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
 
         sheetObj.content.appendChild(node);
 
-        // ✅ معیار overflow دقیق
+        // overflow check
         if (sheetObj.content.scrollHeight > sheetObj.content.clientHeight) {
           sheetObj.content.removeChild(node);
+
+          // اگر نود یک تیتر بود، اول صفحه جدید بیار و بعدش بگذار
           newPage();
           sheetObj.content.appendChild(node);
+
+          // اگر باز overflow شد یعنی نود خیلی بزرگه (نباید با splitLongParagraph رخ بده)
+          if (sheetObj.content.scrollHeight > sheetObj.content.clientHeight) {
+            // در بدترین حالت، اندازه متن رو خردتر می‌کنیم با تکه‌کردن جمله‌ها
+            // ولی چون ما قبلاً خرد کردیم، معمولاً اینجا نمی‌رسه.
+          }
         }
       }
 
@@ -342,16 +408,13 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
 
     async function start() {
       try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch {}
-      const nodes = buildNodes();
 
-      // ✅ یکبار صفحه‌بندی
-      paginate(nodes);
+      // first paginate
+      paginate(buildNodes());
 
-      // ✅ مهم: چون فونت و layout ممکنه بعد از چند ms settle بشه، دوباره paginate
+      // second paginate after layout settle
       setTimeout(() => {
-        const nodes2 = buildNodes();
-        paginate(nodes2);
-
+        paginate(buildNodes());
         setTimeout(() => {
           window.focus();
           window.print();
@@ -368,15 +431,6 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
   printWin.document.write(html);
   printWin.document.close();
 }
-
-
-
-
-
-
-
-
-
 
 // --- helpers ---
 function escapeHtml(str) {
@@ -395,7 +449,6 @@ function toParagraphs(text) {
   return blocks.map((b) => escapeHtml(b).replaceAll("\n", "<br/>")).join("</p><p>");
 }
 
-// استخراج ساده کلیدواژه وقتی keywords خالیه
 function extractKeywordsFallback(text, topK = 8) {
   const t = String(text || "")
     .toLowerCase()
