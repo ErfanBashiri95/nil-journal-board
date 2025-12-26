@@ -4,11 +4,11 @@ import deskBgMobile from "./assets/journal-desk-bg-mobile.jpg";
 import { supabase } from "./lib/supabaseClient";
 // import { extractPdfTextFromUrl } from "./utils/pdfText";
 import { extractAndCleanPdf } from "./utils/articleText";
-import {composeArticleWithSupabase} from "./lib/grokClient.js";
+import { composeArticleWithSupabase } from "./lib/grokClient.js";
 import { openPrintWindow, renderAndPrintInWindow } from "./utils/printPdf";
 import { buildArticleFA } from "./utils/articleText";
 import { mixCorpusChunks } from "./utils/articleText"; // مسیر خودت رو درست بذار
-import {composeArticleFA} from "./utils/articleComposer";
+import { composeArticleFA } from "./utils/articleComposer";
 
 
 const STAR_POSITIONS = [
@@ -910,22 +910,22 @@ export default function JournalTopicBoard({
       .replace(/\n{3,}/g, "\n\n")
       .trim();
   }
-  
+
   function extractiveSummarizeFA(text, opts = {}) {
     const {
       maxSentences = 24, // تعداد جمله‌های نهایی برای بدنه
       maxAbstractSentences = 4,
       minSentenceLen = 20,
     } = opts;
-  
+
     const t = normalizeFaText(text);
-  
+
     // جدا کردن جمله‌ها
     const rawSentences = t
       .split(/(?<=[\.\!\؟\?])\s+|\n+/g)
       .map(s => s.trim())
       .filter(Boolean);
-  
+
     // فیلتر جمله‌های خیلی کوتاه و تکراری
     const seen = new Set();
     const sentences = [];
@@ -936,7 +936,7 @@ export default function JournalTopicBoard({
       seen.add(sig);
       sentences.push(s);
     }
-  
+
     if (sentences.length === 0) {
       return {
         abstract: "—",
@@ -945,24 +945,24 @@ export default function JournalTopicBoard({
         keywords: [],
       };
     }
-  
+
     // ساخت لیست کلمات و حذف stopwords ساده
     const stop = new Set([
-      "که","و","در","به","از","با","برای","این","آن","یک","یا","تا","اما","هم",
-      "می","شود","شد","است","هست","بود","باشند","می‌شود","می‌باشد","را","های","تر","ترین",
-      "همین","همان","نیز","اگر","پس","چون","ضمن","باید","توان","تواند"
+      "که", "و", "در", "به", "از", "با", "برای", "این", "آن", "یک", "یا", "تا", "اما", "هم",
+      "می", "شود", "شد", "است", "هست", "بود", "باشند", "می‌شود", "می‌باشد", "را", "های", "تر", "ترین",
+      "همین", "همان", "نیز", "اگر", "پس", "چون", "ضمن", "باید", "توان", "تواند"
     ]);
-  
+
     const words = t
       .replace(/[^\u0600-\u06FF\s]/g, " ")
       .split(/\s+/)
       .map(w => w.trim())
       .filter(w => w.length >= 3 && !stop.has(w));
-  
+
     // فراوانی کلمات
     const freq = new Map();
     for (const w of words) freq.set(w, (freq.get(w) || 0) + 1);
-  
+
     // امتیازدهی جمله‌ها با مجموع فراوانی کلمات مهم
     function scoreSentence(s) {
       const ws = s
@@ -976,34 +976,34 @@ export default function JournalTopicBoard({
       if (s.length > 220) score *= 0.85;
       return score;
     }
-  
+
     const scored = sentences.map((s, idx) => ({ s, idx, sc: scoreSentence(s) }));
     scored.sort((a, b) => b.sc - a.sc);
-  
+
     // انتخاب بهترین جمله‌ها و بعد مرتب‌سازی بر اساس ترتیب اصلی برای انسجام
     const picked = scored.slice(0, Math.min(maxSentences, scored.length));
     picked.sort((a, b) => a.idx - b.idx);
-  
+
     const abstractPicked = scored
       .slice(0, Math.min(maxAbstractSentences, scored.length))
       .map(x => x.s);
-  
+
     // bulletها: 8 مورد از بهترین‌ها
     const bullets = scored.slice(0, Math.min(8, scored.length)).map(x => x.s);
-  
+
     // پاراگراف‌بندی: هر 3 جمله یک پاراگراف
     const bodyParagraphs = [];
     for (let i = 0; i < picked.length; i += 3) {
       bodyParagraphs.push(picked.slice(i, i + 3).map(x => x.s).join(" "));
     }
-  
+
     // keywords: 8 تا 12 کلمه پرتکرار
     const topKw = Array.from(freq.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([w]) => w)
       .filter(w => w.length >= 3)
       .slice(0, 12);
-  
+
     return {
       abstract: abstractPicked.join(" "),
       bullets,
@@ -1011,16 +1011,16 @@ export default function JournalTopicBoard({
       keywords: topKw,
     };
   }
-  
 
-  
+
+
 
   const handleGenerateArticle = async () => {
     if (articleLoading) return;
-  
+
     setArticleError("");
     setArticleLoading(true);
-  
+
     // ✅ مهم: پنجره باید همان لحظه کلیک باز شود
     let printWin;
     try {
@@ -1032,7 +1032,7 @@ export default function JournalTopicBoard({
       setArticleLoading(false);
       return;
     }
-  
+
     try {
       // =========================
       // Helpers
@@ -1042,35 +1042,35 @@ export default function JournalTopicBoard({
           .trim()
           .split(/\s+/)
           .filter(Boolean).length;
-  
+
       const trimToWords = (txt, maxWords) => {
         const words = String(txt || "").trim().split(/\s+/).filter(Boolean);
         if (words.length <= maxWords) return String(txt || "").trim();
         return words.slice(0, maxWords).join(" ").trim();
       };
-  
+
       // =========================
       // 1) جمع‌آوری PDF ها + نوت‌ها → sources[]
       // =========================
       const textSectionFiles = Array.isArray(filesBySection?.text)
         ? filesBySection.text
         : [];
-  
+
       const sources = []; // [{text, sourceLabel}]
       const refItems = []; // منابع
-  
+
       // --- PDF ها ---
       for (const f of textSectionFiles) {
         const name = String(f?.name || "").trim();
         const rawUrl = String(f?.url || "").trim();
         const cleanUrl = rawUrl.replace(/^com\.nilpapd:\/\//i, "").trim();
-  
+
         const lowerName = name.toLowerCase();
         const lowerUrl = cleanUrl.toLowerCase();
         const isPdf = lowerName.endsWith(".pdf") || lowerUrl.includes(".pdf");
-  
+
         if (!isPdf || !cleanUrl) continue;
-  
+
         let extractedText = "";
         try {
           extractedText = await extractAndCleanPdf(cleanUrl, articleLang || "fa");
@@ -1078,10 +1078,10 @@ export default function JournalTopicBoard({
           console.error("PDF extract/clean failed:", name, e);
           extractedText = "";
         }
-  
+
         const txt = String(extractedText || "").trim();
         if (!txt) continue;
-  
+
         // جلوگیری از تکراری
         const signature = txt.slice(0, 220).replace(/\s+/g, " ").trim();
         const already = sources.some(
@@ -1092,91 +1092,91 @@ export default function JournalTopicBoard({
               .trim() === signature
         );
         if (already) continue;
-  
+
         sources.push({ text: txt, sourceLabel: `فایل: ${name || "PDF"}` });
         refItems.push(`فایل: ${name || "PDF"}`);
       }
-  
+
       // --- نوت‌ها ---
       const notes = Array.isArray(notesList) ? notesList : [];
       for (let i = 0; i < notes.length; i++) {
         const t = String(notes[i]?.title || `Note ${i + 1}`).trim();
         const c = String(notes[i]?.content || "").trim();
         if (!c) continue;
-  
+
         sources.push({ text: c, sourceLabel: `یادداشت: ${t}` });
         refItems.push(`یادداشت: ${t}`);
       }
-  
+
       if (!sources.length) {
         setArticleError("متنی برای ساخت مقاله پیدا نشد. (PDF یا نوت نداریم)");
         try {
           if (printWin && !printWin.closed) printWin.close();
-        } catch {}
+        } catch { }
         return;
       }
-  
+
       // =========================
       // 2) متادیتا + نام فایل
       // =========================
       const isFa = (articleLang || "fa") === "fa";
       const langSuffix = isFa ? "FA" : "EN";
-  
+
       const safeTopic = String(topicTitle || topicName || "NIL-Article").replace(
         /[^\w\-]+/g,
         "_"
       );
       const filename = `NIL-Article-${safeTopic}-${langSuffix}.pdf`;
-  
+
       const authorName = String(username || "کاربر سامانه NIL").trim();
       const authorEmail = "";
-  
+
       const finalTitle = String(
         topicTitle || topicName || (isFa ? "مقاله پژوهشی" : "Research Article")
       ).trim();
-  
+
       const refsText =
         refItems.length > 0
           ? refItems.map((x, i) => `${i + 1}) ${x}`).join("\n")
           : isFa
-          ? "۱) فایل‌ها و نوت‌های بارگذاری‌شده در سامانه NIL"
-          : "1) User uploaded files and notes in NIL system";
-  
+            ? "۱) فایل‌ها و نوت‌های بارگذاری‌شده در سامانه NIL"
+            : "1) User uploaded files and notes in NIL system";
+
       // =========================
       // 3) ساخت مقاله ترکیبی (۴ بخش) با بودجه کلمات (۸ تا ۱۲ صفحه)
       // =========================
       let intro = "";
       let body = "";
       let conclusion = "";
-  
+
       if (isFa) {
         // بودجه کلمات تقریبی برای 8-12 صفحه (12pt / line-height 1.9)
         // حدوداً 270 تا 360 کلمه در هر صفحه → 8-12 صفحه ≈ 2200 تا 4300 کلمه
         const introWords = 650;
         const bodyWords = 2600;
         const conclusionWords = 650;
-  
+
         // seed ثابت روزانه برای خروجی قابل پیش‌بینی
         const dayKey = new Date().toISOString().slice(0, 10);
         const seed = `niljournal|${authorName}|${safeTopic}|${dayKey}`;
-  
+
         const composed = composeArticleFA(sources, {
           seed,
           introWords,
           bodyWords,
           conclusionWords,
         });
-  
+
         intro = String(composed?.intro || "").trim();
         body = String(composed?.body || "").trim();
         conclusion = String(composed?.conclusion || "").trim();
-  
+
         // اگر خیلی کم بود (مثلاً منابع کم)، فقط با همون خروجی composer ادامه می‌دیم
         // ولی طول رو کنترل می‌کنیم که خروجی خیلی زیاد نشه
         intro = trimToWords(intro, introWords);
         body = trimToWords(body, bodyWords);
         conclusion = trimToWords(conclusion, conclusionWords);
-  
+
         // اگر هنوز خالی بود، یعنی ورودی‌ها خیلی کوتاه/بدفرمت‌اند
         // در این حالت از mix کلیِ composer استفاده می‌کنیم، نه پشت‌سرهم فایل‌ها
         if (!intro || countWords(intro) < 120) intro = trimToWords(body, 500);
@@ -1197,7 +1197,7 @@ export default function JournalTopicBoard({
         body = trimToWords(full, 2400);
         conclusion = trimToWords(full.split("\n\n").slice(-6).join("\n\n"), 450);
       }
-  
+
       // =========================
       // 4) آبجکت مقاله برای PDF (بدون abstract/keywords)
       // =========================
@@ -1208,20 +1208,20 @@ export default function JournalTopicBoard({
         date: isFa
           ? new Date().toLocaleDateString("fa-IR")
           : new Date().toLocaleDateString("en-US"),
-  
+
         intro,
         body,
         conclusion,
         references: refsText,
       };
-  
+
       console.log("ARTICLE WORDS:", {
         intro: countWords(intro),
         body: countWords(body),
         conclusion: countWords(conclusion),
         total: countWords(intro) + countWords(body) + countWords(conclusion),
       });
-  
+
       // =========================
       // 5) چاپ PDF
       // =========================
@@ -1231,18 +1231,18 @@ export default function JournalTopicBoard({
       setArticleError(String(err?.message || err || "خطا در ساخت PDF"));
       try {
         if (printWin && !printWin.closed) printWin.close();
-      } catch {}
+      } catch { }
     } finally {
       setArticleLoading(false);
     }
   };
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
 
 
 
@@ -1749,22 +1749,23 @@ export default function JournalTopicBoard({
                 type="button"
                 onClick={openArticleModal}
                 className="
-      hidden sm:inline-flex
-      items-center justify-center
-      px-2.5 py-1
-      rounded-full
-      border border-sky-400/70
-      bg-sky-500/15
-      hover:bg-sky-400/30
-      text-[9px] md:text-[11px]
-      text-sky-200
-      font-semibold
-      shadow-sm
-      transition
-    "
+    inline-flex
+    items-center justify-center
+    px-2.5 py-1
+    rounded-full
+    border border-sky-400/70
+    bg-sky-500/15
+    hover:bg-sky-400/30
+    text-[9px] md:text-[11px]
+    text-sky-200
+    font-semibold
+    shadow-sm
+    transition
+  "
               >
                 ساخت مقاله
               </button>
+
 
             </div>
 
