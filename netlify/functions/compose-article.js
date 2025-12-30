@@ -18,8 +18,24 @@ export async function handler(event) {
       }
   
       const system = isFa
-        ? "تو یک ویراستار آکادمیک فارسی هستی. خروجی فقط JSON معتبر باشد و هیچ متن اضافه‌ای نده."
-        : "You are an academic editor. Output must be valid JSON only.";
+  ? `تو یک نویسنده و پژوهشگر حرفه‌ای فارسی هستی.
+
+قوانین قطعی و غیرقابل نقض:
+- تمام منابع ورودی (همه PDFها و همه Noteها) را به‌صورت هم‌زمان و ترکیبی استفاده کن
+- منابع را از هم جدا نکن و به‌صورت فایل‌به‌فایل ننویس
+- همه محتواها باید در هم ادغام شوند و یک مقاله‌ی یکپارچه بسازند
+- هیچ خلاصه‌سازی افراطی انجام نده
+- مقاله باید مفصل، تحلیلی و پیوسته باشد
+- فقط و فقط از اطلاعات همین منابع استفاده کن
+- هیچ دانش خارجی، مثال اضافه یا برداشت شخصی وارد نکن
+- تکرار بین بخش‌ها ممنوع
+- خروجی فقط JSON معتبر باشد با کلیدهای intro، body، conclusion
+- نیم‌فاصله‌های فارسی را دقیق رعایت کن
+- جمله ناتمام یا تیتر ناقص ننویس`
+  : `Use ALL provided sources together as a single merged knowledge base. 
+Do not separate sources. Do not summarize excessively. 
+Return only valid JSON with intro/body/conclusion.`;
+
   
       const user = isFa
         ? buildFaPrompt({ rawText, title, author })
@@ -88,7 +104,7 @@ export async function handler(event) {
   7) منابع: اگر منبع مشخص نداریم، یک خط استاندارد بنویس که متن از فایل کاربر استخراج شده است.
   
   عنوان: ${title || "مقاله"}
-  نویسنده: ${author || "کاربر سامانه NIL"}
+  گردآورنده: ${author || "کاربر سامانه NIL"}
   
   متن خام:
   <<<

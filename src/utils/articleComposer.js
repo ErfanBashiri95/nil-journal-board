@@ -1,4 +1,3 @@
-// src/utils/articleComposer.js
 // 25/50/25 واقعی بر اساس نسبت کلمات در هر منبع
 // + ضدتکرار بین‌بخشی (حتی fallback)
 // + نیم‌فاصله‌گذاری قواعدی فارسی (ها/های/می/نمی/ضمیرها...)
@@ -54,37 +53,34 @@ function normalize(s) {
     let t = String(text || "");
   
     // یکدست‌سازی فاصله‌ها
-    t = t.replace(/\u200c/g, "\u200c"); // keep
-    t = t.replace(/[ \t]{2,}/g, " ");
+    t = t.replace(/[ \t]{2,}/g, " ").trim();
   
     // 1) ها / های
     // "کتابها" -> "کتاب‌ها"
-    t = t.replace(/([\u0600-\u06FF])ها\b/g, "$1\u200cها");
+    t = t.replace(/([\u0600-\u06FF])\s*ها\b/g, "$1\u200cها");
     // "کتابهای" -> "کتاب‌های"
-    t = t.replace(/([\u0600-\u06FF])های\b/g, "$1\u200cهای");
-    // اگر "کتاب ها" نوشته بود -> "کتاب‌ها"
-    t = t.replace(/([\u0600-\u06FF])\s+ها\b/g, "$1\u200cها");
-    t = t.replace(/([\u0600-\u06FF])\s+های\b/g, "$1\u200cهای");
+    t = t.replace(/([\u0600-\u06FF])\s*های\b/g, "$1\u200cهای");
   
     // 2) تر / ترین
     t = t.replace(/([\u0600-\u06FF])\s*(تر|ترین)\b/g, "$1\u200c$2");
   
     // 3) می / نمی (پیشوند فعل)
-    // "می رود" -> "می‌رود"
     t = t.replace(/\b(می|نمی)\s+([\u0600-\u06FF])/g, "$1\u200c$2");
   
     // 4) ضمیرهای متصل
-    // "خانه ام" -> "خانه‌ام"
-    t = t.replace(/([\u0600-\u06FF])\s+(ام|ات|اش|ای|ایم|اید|اند)\b/g, "$1\u200c$2");
-    // اگر بدون فاصله: "خانهام" -> "خانه‌ام"
-    t = t.replace(/([\u0600-\u06FF])(ام|ات|اش|ای|ایم|اید|اند)\b/g, "$1\u200c$2");
+    t = t.replace(
+      /([\u0600-\u06FF])\s+(ام|ات|اش|ای|ایم|اید|اند)\b/g,
+      "$1\u200c$2"
+    );
+    t = t.replace(
+      /([\u0600-\u06FF])(ام|ات|اش|ای|ایم|اید|اند)\b/g,
+      "$1\u200c$2"
+    );
   
-    // 5) فعل مرکب رایج "رفته اند" -> "رفته‌اند"
+    // 5) "رفته اند" -> "رفته‌اند"
     t = t.replace(/([\u0600-\u06FF])\s+اند\b/g, "$1\u200cاند");
   
-    // تمیزکاری نهایی
-    t = t.replace(/[ \t]{2,}/g, " ").trim();
-    return t;
+    return t.replace(/[ \t]{2,}/g, " ").trim();
   }
   
   function wordCount(text) {
@@ -96,7 +92,7 @@ function normalize(s) {
   function strongNormalizeForKey(text) {
     return normalize(text)
       .replace(/\u200c/g, " ") // ZWNJ -> space
-      .replace(/[ـ]/g, "") // اعراب/کشیده
+      .replace(/[ـ]/g, "") // کشیده
       .replace(/[0-9۰-۹]/g, "") // اعداد
       .replace(/[^\u0600-\u06FFa-zA-Z ]+/g, " ") // علائم
       .replace(/\s+/g, " ")
@@ -108,17 +104,20 @@ function normalize(s) {
     return strongNormalizeForKey(text).slice(0, 520);
   }
   
+  // یک fingerprint کوتاه‌تر برای تشابه‌های جزئی
   function fingerprint(text) {
-    return strongNormalizeForKey(text).slice(0, 200);
+    return strongNormalizeForKey(text).slice(0, 220);
   }
   
   function extractParagraphsRobust(raw) {
     const t0 = normalize(raw);
     if (!t0) return [];
   
+    // اول: پاراگراف واقعی
     let paras = t0.split(/\n{2,}/g).map(normalize).filter(Boolean);
     if (paras.length >= 3) return paras;
   
+    // دوم: اگر متن line-line بود
     const lines = t0.split(/\n+/g).map((x) => x.trim()).filter(Boolean);
     if (lines.length >= 6) {
       const out = [];
@@ -135,6 +134,7 @@ function normalize(s) {
       return out.map(normalize).filter(Boolean);
     }
   
+    // سوم: جمله‌ای (خشن)
     const flat = t0.replace(/\s+/g, " ").trim();
     if (!flat) return [];
   
@@ -142,6 +142,7 @@ function normalize(s) {
     paras = rough.split(/\n{2,}/g).map(normalize).filter(Boolean);
     if (paras.length >= 3) return paras;
   
+    // چهارم: chunk ثابت
     const out = [];
     let i = 0;
     while (i < flat.length) {
@@ -151,6 +152,19 @@ function normalize(s) {
     return out.filter(Boolean);
   }
   
+  /**
+   * ✅ فیلتر پاراگراف قابل استفاده:
+   * - طول حداقلی
+   * - کلمات کافی
+   */
+  function isUsablePara(p) {
+    const s = normalize(p);
+    if (!s) return false;
+    if (s.length < 80) return false;
+    if (wordCount(s) < 14) return false;
+    return true;
+  }
+  
   function uniqueKeepOrder(paras, usedKeys, usedFp) {
     const out = [];
     const localK = new Set();
@@ -158,13 +172,13 @@ function normalize(s) {
   
     for (const p of paras) {
       const para = normalize(p);
-      if (!para || para.length < 60) continue;
+      if (!isUsablePara(para)) continue;
   
       const k = canonicalKey(para);
       const f = fingerprint(para);
   
       if (!k || k.length < 25) continue;
-      if (!f || f.length < 60) continue;
+      if (!f || f.length < 80) continue;
   
       if (usedKeys && usedKeys.has(k)) continue;
       if (usedFp && usedFp.has(f)) continue;
@@ -185,7 +199,7 @@ function normalize(s) {
       const k = canonicalKey(p);
       const f = fingerprint(p);
       if (k && k.length >= 25) usedKeys.add(k);
-      if (f && f.length >= 60) usedFp.add(f);
+      if (f && f.length >= 80) usedFp.add(f);
     }
   }
   
@@ -217,6 +231,7 @@ function normalize(s) {
   
   /**
    * ✅ تقسیم 25/50/25 با موقعیت کلمه‌ای داخل همان فایل
+   * (center-based)
    */
   function bucketByPosition(paras) {
     const ps = paras.map(normalize).filter(Boolean);
@@ -247,6 +262,7 @@ function normalize(s) {
     const bodyWords = Number(opts.bodyWords || 1100);
     const conclusionWords = Number(opts.conclusionWords || 450);
   
+    // ✅ Poolها (از همه منابع)
     const introPool = [];
     const bodyPool = [];
     const concPool = [];
@@ -254,36 +270,43 @@ function normalize(s) {
     for (const s of sources || []) {
       const raw0 = s?.text || "";
       const raw = fixPersianZwnj(cleanupEntities(raw0));
-  
       const paras = extractParagraphsRobust(raw)
         .map((p) => normalize(fixPersianZwnj(cleanupEntities(p))))
         .filter(Boolean);
   
       if (!paras.length) continue;
   
+      // ✅ 25/50/25 مخصوص همین فایل
       const b = bucketByPosition(paras);
+  
+      // نکته: اگر intro این فایل خیلی کم بود (مثلاً صفحه عنوان زیاد داشت)
+      // یک کمک کوچک: از ابتدای body همین فایل هم چند پاراگراف بیار داخل introPool
+      if (b.intro.length < 1 && b.body.length) {
+        introPool.push(...b.body.slice(0, Math.min(2, b.body.length)));
+      }
+  
       introPool.push(...b.intro);
       bodyPool.push(...b.body);
       concPool.push(...b.conc);
     }
   
-    // ✅ ضدتکرار بین‌بخشی (اصلی)
+    // ✅ ضدتکرار بین‌بخشی
     const usedKeys = new Set();
     const usedFp = new Set();
   
     // INTRO
     const introUnique = uniqueKeepOrder(introPool, usedKeys, usedFp);
-    const introPicked = takeByWordBudget(introUnique, introWords, 2);
+    let introPicked = takeByWordBudget(introUnique, introWords, 2);
     markUsedParas(introPicked, usedKeys, usedFp);
   
-    // BODY (بعد از markUsed intro)
+    // BODY
     const bodyUnique = uniqueKeepOrder(bodyPool, usedKeys, usedFp);
-    const bodyPicked = takeByWordBudget(bodyUnique, bodyWords, 4);
+    let bodyPicked = takeByWordBudget(bodyUnique, bodyWords, 4);
     markUsedParas(bodyPicked, usedKeys, usedFp);
   
     // CONCLUSION
     const concUnique = uniqueKeepOrder(concPool, usedKeys, usedFp);
-    const concPicked = takeByWordBudget(concUnique, conclusionWords, 2);
+    let concPicked = takeByWordBudget(concUnique, conclusionWords, 2);
     markUsedParas(concPicked, usedKeys, usedFp);
   
     let introFinal = normalize(introPicked.join("\n\n"));
@@ -291,30 +314,28 @@ function normalize(s) {
     let concFinal = normalize(concPicked.join("\n\n"));
   
     /**
-     * ✅ FIX اصلی تکرار شما:
-     * اگر مقدمه خالی شد، از ابتدای بدنه قرض می‌گیریم
-     * اما باید همان پاراگراف‌ها را در usedKeys/Fp علامت بزنیم
-     * و بعد بدنه را دوباره بسازیم تا تکرار نشود.
+     * ✅ FIX تکرار/خالی بودن مقدمه:
+     * اگر مقدمه خالی یا خیلی کم شد، فقط از “اولین پاراگراف‌های غیرتکراری بدنه” قرض می‌گیریم،
+     * ولی بعدش بدنه را دوباره می‌سازیم تا همان پاراگراف تکرار نشود.
      */
-    if (!introFinal) {
-      const bodyUniqueForIntro = uniqueKeepOrder(bodyPool, usedKeys, usedFp);
+    if (wordCount(introFinal) < 80) {
+      const bodyForIntro = uniqueKeepOrder(bodyPool, usedKeys, usedFp);
       const fallbackIntro = takeByWordBudget(
-        bodyUniqueForIntro,
-        Math.max(220, Math.floor(introWords * 0.7)),
+        bodyForIntro,
+        Math.max(220, Math.floor(introWords * 0.8)),
         2
       );
   
-      // مهم: اینجا باید به usedGlobal اضافه شود
       markUsedParas(fallbackIntro, usedKeys, usedFp);
-  
       introFinal = normalize(fallbackIntro.join("\n\n"));
   
-      // بدنه دوباره با usedGlobal جدید
+      // بدنه دوباره با used جدید
       const bodyReUnique = uniqueKeepOrder(bodyPool, usedKeys, usedFp);
       const bodyRePicked = takeByWordBudget(bodyReUnique, bodyWords, 4);
       bodyFinal = normalize(bodyRePicked.join("\n\n"));
     }
   
+    // نیم‌فاصله نهایی
     introFinal = normalize(fixPersianZwnj(introFinal));
     bodyFinal = normalize(fixPersianZwnj(bodyFinal));
     concFinal = normalize(fixPersianZwnj(concFinal));
@@ -327,7 +348,8 @@ function normalize(s) {
         introWords: wordCount(introFinal),
         bodyWords: wordCount(bodyFinal),
         conclusionWords: wordCount(concFinal),
-        totalWords: wordCount(introFinal) + wordCount(bodyFinal) + wordCount(concFinal),
+        totalWords:
+          wordCount(introFinal) + wordCount(bodyFinal) + wordCount(concFinal),
       },
     };
   }

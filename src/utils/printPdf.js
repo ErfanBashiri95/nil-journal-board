@@ -40,27 +40,86 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       '"': "&quot;",
     }[c]));
 
-  // ✅ decode html entities like &quot; &amp; ...
+  // ✅ Entity decode (بدون DOM)
   function decodeEntities(str) {
-    const s = String(str ?? "");
+    let s = String(str ?? "");
     if (!s.includes("&")) return s;
-    const txt = document.createElement("textarea");
-    txt.innerHTML = s;
-    return txt.value;
+
+    const map = {
+      "&quot;": '"',
+      "&amp;": "&",
+      "&lt;": "<",
+      "&gt;": ">",
+      "&nbsp;": " ",
+      "&#39;": "'",
+      "&apos;": "'",
+    };
+
+    // replace known entities
+    s = s.replace(
+      /&(quot|amp|lt|gt|nbsp|apos);|&#39;/gi,
+      (m) => map[m.toLowerCase()] ?? m
+    );
+
+    // remove ugly leftovers like "quot;" "amp;"
+    s = s.replace(/\bquot;+\b/gi, "");
+    s = s.replace(/\bamp;+\b/gi, "");
+    s = s.replace(/\blt;+\b/gi, "");
+    s = s.replace(/\bgt;+\b/gi, "");
+
+    return s;
   }
 
-  // ✅ fix Persian spacing like مقالهها -> مقاله ها
-  const fixPersianSpacing = (text) => {
-    let t = String(text || "");
+  // ✅ نرمال‌سازی فارسی (ی/ک + نیم‌فاصله)
+  function normalizeFaText(text) {
+    let t = String(text ?? "");
+
+    // unify
+    t = t
+      .replace(/\u0000/g, "")
+      .replace(/\r/g, "")
+      .replace(/\u200c/g, "\u200c") // keep ZWNJ if exists
+      .replace(/[ي]/g, "ی")
+      .replace(/[ك]/g, "ک")
+      .replace(/[ۀ]/g, "ه")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    // decode entities
+    t = decodeEntities(t);
+
+    // collapse spaces again (after decode)
+    t = t.replace(/[ \t]{2,}/g, " ");
+
+    // ✅ Persian typography (نیم‌فاصله‌های رایج)
+    // 1) مقاله ها / مقالهها => مقاله‌ها
+    // برنامه های / برنامههای => برنامه‌های
     t = t.replace(
-      /([\u0600-\u06FF])ها(یی|ی|یم|یت|یش|مان|تان|شان)?\b/g,
-      (m, p1, p2) => `${p1} ها${p2 || ""}`
+      /([\u0600-\u06FF])\s*ها(ی)?\b/g,
+      (m, p1, y) => `${p1}\u200cها${y ? "\u200cی" : ""}`
     );
-    t = t.replace(/([\u0600-\u06FF])(ترین|تر)\b/g, "$1 $2");
+
+    // 2) می رود => می‌رود | نمی رود => نمی‌رود
+    // (اگر بعدش فعل/کلمه فارسی باشه)
+    t = t.replace(/\b(می|نمی)\s+([\u0600-\u06FF])/g, (m, a, b) => `${a}\u200c${b}`);
+
+    // 3) پسوندهای «تر/ترین» با فاصله درست (اختیاری)
+    // بهتر است: بزرگ‌تر / بهترین
+    t = t.replace(/([\u0600-\u06FF])\s*(ترین|تر)\b/g, "$1\u200c$2");
+
+    // 4) ضمایر/پسوندهای رایج: ام/ات/اش/مان/تان/شان
+    // کتابم => کتابم (اوکی) / کتاب ام => کتابم (فاصله اضافی حذف)
+    t = t.replace(
+      /([\u0600-\u06FF])\s+(ام|ات|اش|مان|تان|شان)\b/g,
+      "$1$2"
+    );
+
     return t;
-  };
+  }
 
   // ✅ keep only complete sentences (remove no-ending fragments)
+  // (بدون اضافه کردن نقطه)
   const trimToLastSentenceEnd = (text) => {
     const t = String(text ?? "").replace(/\r/g, "").trim();
     if (!t) return "";
@@ -93,18 +152,22 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
   const author = safe(article?.author || "");
   const date = safe(article?.date || "");
 
-  // ✅ decode + trim + fix spacing
-  const intro = fixPersianSpacing(
-    decodeEntities(trimToLastSentenceEnd(article?.intro || ""))
-  );
-  const body = fixPersianSpacing(
-    decodeEntities(trimToLastSentenceEnd(article?.body || ""))
-  );
-  const conclusion = fixPersianSpacing(
-    decodeEntities(trimToLastSentenceEnd(article?.conclusion || ""))
-  );
+  // ✅ decode + trim + normalize typography
+  const intro = isFa
+    ? normalizeFaText(trimToLastSentenceEnd(article?.intro || ""))
+    : decodeEntities(trimToLastSentenceEnd(article?.intro || ""));
 
-  const references = decodeEntities(String(article?.references || "").trim());
+  const body = isFa
+    ? normalizeFaText(trimToLastSentenceEnd(article?.body || ""))
+    : decodeEntities(trimToLastSentenceEnd(article?.body || ""));
+
+  const conclusion = isFa
+    ? normalizeFaText(trimToLastSentenceEnd(article?.conclusion || ""))
+    : decodeEntities(trimToLastSentenceEnd(article?.conclusion || ""));
+
+  const references = isFa
+    ? normalizeFaText(String(article?.references || "").trim())
+    : decodeEntities(String(article?.references || "").trim());
 
   const html = `<!doctype html>
 <html lang="${isFa ? "fa" : "en"}" dir="${isFa ? "rtl" : "ltr"}">
@@ -135,12 +198,12 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       position: relative;
       page-break-after: always;
       overflow: hidden;
-
       display: flex;
       flex-direction: column;
     }
     .sheet:last-child { page-break-after: auto; }
 
+    /* Border ONLY left & right */
     .border-l, .border-r {
       position: absolute;
       top: 14mm;
@@ -212,6 +275,7 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       border-bottom: 1px solid #ccc;
       padding-bottom: 2mm;
     }
+
     .p { margin: 0 0 4mm 0; text-align: justify; }
 
     @media print {
@@ -267,17 +331,26 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       return { sheet, content };
     }
 
-    // ✅ split long paragraph into several smaller paragraphs by sentence boundaries
+    // ✅ split by sentence endings (بدون lookbehind)
+    function splitToSentences(text) {
+      const s = String(text || "").replace(/\\s+/g, " ").trim();
+      if (!s) return [];
+      const re = /[^.!?؟…\\u06D4]+[.!?؟…\\u06D4]+/g;
+      const out = s.match(re) || [s];
+      return out.map(x => x.trim()).filter(Boolean);
+    }
+
+    // ✅ split long paragraph into smaller ones
     function splitLongParagraph(ptxt, maxChars = 520) {
       const s = String(ptxt || "").replace(/\\s+/g, " ").trim();
       if (!s) return [];
       if (s.length <= maxChars) return [s];
 
-      const parts = s.split(/(?<=[\\.!\\?؟…\\u06D4])\\s+/g).map(x => x.trim()).filter(Boolean);
+      const sentences = splitToSentences(s);
       const out = [];
       let buf = "";
 
-      for (const sen of parts) {
+      for (const sen of sentences) {
         if (!buf) { buf = sen; continue; }
         if ((buf + " " + sen).length > maxChars) {
           out.push(buf);
@@ -327,7 +400,7 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
       header.innerHTML = \`
         <h1>\${TITLE}</h1>
         <div class="meta">
-          <div>\${IS_FA ? "نویسنده: " : "Author: "}\${AUTHOR}</div>
+          <div>\${IS_FA ? "گردآورنده: " : "Author: "}\${AUTHOR}</div>
           <div>\${IS_FA ? "تاریخ: " : "Date: "}\${DATE}</div>
         </div>
       \`;
@@ -386,19 +459,10 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
 
         sheetObj.content.appendChild(node);
 
-        // overflow check
         if (sheetObj.content.scrollHeight > sheetObj.content.clientHeight) {
           sheetObj.content.removeChild(node);
-
-          // اگر نود یک تیتر بود، اول صفحه جدید بیار و بعدش بگذار
           newPage();
           sheetObj.content.appendChild(node);
-
-          // اگر باز overflow شد یعنی نود خیلی بزرگه (نباید با splitLongParagraph رخ بده)
-          if (sheetObj.content.scrollHeight > sheetObj.content.clientHeight) {
-            // در بدترین حالت، اندازه متن رو خردتر می‌کنیم با تکه‌کردن جمله‌ها
-            // ولی چون ما قبلاً خرد کردیم، معمولاً اینجا نمی‌رسه.
-          }
         }
       }
 
@@ -409,10 +473,8 @@ export async function renderAndPrintInWindow(printWin, article, filename, isFa) 
     async function start() {
       try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch {}
 
-      // first paginate
       paginate(buildNodes());
 
-      // second paginate after layout settle
       setTimeout(() => {
         paginate(buildNodes());
         setTimeout(() => {
@@ -440,32 +502,4 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function toParagraphs(text) {
-  const t = String(text ?? "").trim();
-  if (!t) return "—";
-  const blocks = t.split(/\n\s*\n+/g).map((s) => s.trim()).filter(Boolean);
-  return blocks.map((b) => escapeHtml(b).replaceAll("\n", "<br/>")).join("</p><p>");
-}
-
-function extractKeywordsFallback(text, topK = 8) {
-  const t = String(text || "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s‌-]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!t) return [];
-
-  const stop = new Set(["و","یا","که","این","آن","را","در","به","از","با","برای","است","می","شود","شد","هست","بود","های"]);
-  const tokens = t.split(" ").filter(Boolean).filter((x) => x.length >= 3 && !stop.has(x) && !/^\d+$/.test(x));
-
-  const freq = new Map();
-  for (const tok of tokens) freq.set(tok, (freq.get(tok) || 0) + 1);
-
-  return [...freq.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, topK)
-    .map(([k]) => k);
 }

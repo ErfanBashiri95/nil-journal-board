@@ -1,14 +1,19 @@
 import { useState, useRef, useEffect } from "react";
 import deskBgDesktop from "./assets/journal-desk-bg.jpg";
 import deskBgMobile from "./assets/journal-desk-bg-mobile.jpg";
-import { supabase } from "./lib/supabaseClient";
+import { supabase,SUPABASE_URL,SUPABASE_ANON_KEY } from "./lib/supabaseClient";
 // import { extractPdfTextFromUrl } from "./utils/pdfText";
 import { extractAndCleanPdf } from "./utils/articleText";
-import { composeArticleWithSupabase } from "./lib/grokClient.js";
+// import { composeArticleWithSupabase } from "./lib/grokClient.js";
 import { openPrintWindow, renderAndPrintInWindow } from "./utils/printPdf";
 import { buildArticleFA } from "./utils/articleText";
-import { mixCorpusChunks } from "./utils/articleText"; // مسیر خودت رو درست بذار
-import { composeArticleFA } from "./utils/articleComposer";
+import html2pdf from "html2pdf.js";
+import {FunctionsHttpError} from "@supabase/supabase-js";
+// import { mixCorpusChunks } from "./utils/articleText"; // مسیر خودت رو درست بذار
+// import { composeArticleFA } from "./utils/articleComposer";
+
+
+
 
 
 const STAR_POSITIONS = [
@@ -20,6 +25,10 @@ const STAR_POSITIONS = [
   { top: "20%", left: "78%", size: 2, delay: "1.1s" },
   { top: "22%", left: "86%", size: 2, delay: "0.8s" },
 ];
+
+
+const SUPABASE_FUNCTION_URL =
+  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compose-article`;
 
 const SECTIONS = [
   { id: "text", title: "فایل‌های متنی" },
@@ -38,6 +47,115 @@ const starAnimationStyle = `
   animation: star-twinkle 1.6s infinite ease-in-out;
 }
 `;
+
+const extractEdgeErrorMessage = async (err) => {
+  try {
+    const ctx = err?.context;
+
+    // ✅ در supabase FunctionsHttpError، ctx خودش Response است
+    const res =
+      (err instanceof FunctionsHttpError && ctx && typeof ctx?.json === "function")
+        ? ctx
+        : ctx?.response;
+
+    const status =
+      res?.status ||
+      ctx?.status ||
+      err?.status ||
+      err?.context?.status;
+
+    // ✅ اگر 429 بود: پیام واقعی بک‌اند را از body بخوان (JSON یا text)
+    if (Number(status) === 429) {
+      if (res) {
+        // اول JSON
+        try {
+          const j = await res.clone().json();
+          const m = j?.error || j?.message || "";
+          if (m) return String(m);
+        } catch {}
+
+        // بعد text
+        try {
+          const t = await res.clone().text();
+          if (t) {
+            try {
+              const j2 = JSON.parse(t);
+              return String(j2?.error || j2?.message || t);
+            } catch {
+              return String(t);
+            }
+          }
+        } catch {}
+      }
+
+      // fallback
+      return "شما در این هفته دوبار مقاله ساخته‌اید. هفته بعد مجدداً تلاش کنید.";
+    }
+
+    // ✅ سایر خطاها: اگر Response داریم، متنش را بخوان
+    if (res) {
+      const text = await res.clone().text().catch(() => "");
+      if (!text) return String(err?.message || "خطای نامشخص");
+
+      try {
+        const j = JSON.parse(text);
+        if (j?.error) return String(j.error);
+        if (j?.message) return String(j.message);
+        return text;
+      } catch {
+        return text;
+      }
+    }
+
+    // ✅ بعضی نسخه‌ها body را string می‌دهند
+    if (typeof ctx?.body === "string" && ctx.body.trim()) {
+      try {
+        const j = JSON.parse(ctx.body);
+        if (j?.error) return String(j.error);
+        if (j?.message) return String(j.message);
+        return ctx.body;
+      } catch {
+        return ctx.body;
+      }
+    }
+
+    return String(err?.message || err || "خطای نامشخص");
+  } catch {
+    return String(err?.message || err || "خطای نامشخص");
+  }
+};
+
+
+const composeWithEdge = async ({
+  title,
+  sources,
+  username,
+  topicId,
+  target_lang,
+  requestKey,
+}) => {
+  const payload = {
+    username: String(username || "").trim(),
+    topic_id:String(topicId || "").trim(),
+    topic_title: String(title || "").trim(),
+    lang: String(target_lang || "fa").trim(),
+    request_key: String(requestKey || "").trim(),
+    sources: Array.isArray(sources) ? sources : [],
+  };
+
+  const { data, error } = await supabase.functions.invoke("compose-article", {
+    body: payload,
+  });
+
+  if (error) {
+    const msg =
+      await extractEdgeErrorMessage(error);
+  
+    throw new Error(msg);
+  }
+  return data;
+};
+
 
 export default function JournalTopicBoard({
   isFa,
@@ -306,6 +424,9 @@ export default function JournalTopicBoard({
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const genInFlightRef=useRef(false);
+  const genLockRef=useRef(false);
+  const lastReqKeyRef=useRef(null);
 
   const uploadRealFile = async (file, onProgress) => {
     return new Promise((resolve) => {
@@ -1015,238 +1136,335 @@ export default function JournalTopicBoard({
 
 
 
-  const handleGenerateArticle = async () => {
-    if (articleLoading) return;
 
+
+  const handleGenerateArticle = async () => {
+    if (genLockRef.current) return;
+    genLockRef.current = true;
+  
     setArticleError("");
     setArticleLoading(true);
-
-    // ✅ مهم: پنجره باید همان لحظه کلیک باز شود
+  
+    
+  
+    // --- helper: timeout ---
+    const withTimeout = (promise, ms = 120000) =>
+      Promise.race([
+        promise,
+        new Promise((_, rej) =>
+          setTimeout(
+            () => rej(new Error("زمان پاسخ‌گویی سرور طولانی شد. لطفاً دوباره تلاش کنید.")),
+            ms
+          )
+        ),
+      ]);
+  
     let printWin;
     try {
       printWin = openPrintWindow("NIL Article");
     } catch (e) {
-      setArticleError(
-        "Pop-up blocked! لطفاً از کنار آدرس بار اجازه Pop-up بده و دوباره بزن."
-      );
+      setArticleError("Pop-up blocked! لطفاً اجازه Pop-up بده و دوباره بزن.");
       setArticleLoading(false);
+      genLockRef.current = false;
       return;
     }
-
+  
+    const request_key = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
+      .toString()
+      .trim();
+  
+    lastReqKeyRef.current = request_key;
+    // ✅ topic_id is UUID/text (NOT number)
+const topic_id = String(topicId || "").trim();
+if (!topic_id) {
+  throw new Error("شناسه تاپیک خالی است. لطفاً یکبار از تاپیک خارج شو و دوباره وارد شو.");
+}
+ 
+  
     try {
-      // =========================
-      // Helpers
-      // =========================
+      // =============== Helpers ===============
       const countWords = (txt) =>
-        String(txt || "")
-          .trim()
-          .split(/\s+/)
-          .filter(Boolean).length;
-
+        String(txt || "").trim().split(/\s+/).filter(Boolean).length;
+  
       const trimToWords = (txt, maxWords) => {
         const words = String(txt || "").trim().split(/\s+/).filter(Boolean);
         if (words.length <= maxWords) return String(txt || "").trim();
         return words.slice(0, maxWords).join(" ").trim();
       };
-
-      // =========================
-      // 1) جمع‌آوری PDF ها + نوت‌ها → sources[]
-      // =========================
+  
+      const safeStr = (x) => String(x ?? "").trim();
+  
+      // کپ‌ها برای اینکه درخواست سنگین نشه و گیر نکنه
+      const MAX_PDF_WORDS_EACH = 1600; // کمی کمتر => پایدارتر
+      const MAX_NOTE_WORDS_EACH = 600;
+      const MAX_TOTAL_WORDS = 7500;
+  
+      // =============== 1) Collect sources ===============
       const textSectionFiles = Array.isArray(filesBySection?.text)
         ? filesBySection.text
         : [];
-
-      const sources = []; // [{text, sourceLabel}]
-      const refItems = []; // منابع
-
-      // --- PDF ها ---
+  
+      const sources = [];
+      const refItems = [];
+  
+      // --- PDFs ---
       for (const f of textSectionFiles) {
-        const name = String(f?.name || "").trim();
-        const rawUrl = String(f?.url || "").trim();
+        const name = safeStr(f?.name);
+        const rawUrl = safeStr(f?.url);
         const cleanUrl = rawUrl.replace(/^com\.nilpapd:\/\//i, "").trim();
-
+  
         const lowerName = name.toLowerCase();
         const lowerUrl = cleanUrl.toLowerCase();
         const isPdf = lowerName.endsWith(".pdf") || lowerUrl.includes(".pdf");
-
+  
         if (!isPdf || !cleanUrl) continue;
-
+  
         let extractedText = "";
         try {
           extractedText = await extractAndCleanPdf(cleanUrl, articleLang || "fa");
         } catch (e) {
-          console.error("PDF extract/clean failed:", name, e);
+          console.error("PDF extract failed:", name, e);
           extractedText = "";
         }
 
-        const txt = String(extractedText || "").trim();
+        console.log("📄 PDF EXTRACT RESULT", {
+          name,
+          url: cleanUrl,
+          length: extractedText ? extractedText.length : 0,
+          preview: extractedText ? extractedText.slice(0, 120) : "EMPTY",
+        });
+  
+        let txt = safeStr(extractedText);
         if (!txt) continue;
-
+  
+        txt = trimToWords(txt, MAX_PDF_WORDS_EACH);
+  
         // جلوگیری از تکراری
         const signature = txt.slice(0, 220).replace(/\s+/g, " ").trim();
         const already = sources.some(
           (x) =>
-            String(x.text || "")
+            safeStr(x.text)
               .slice(0, 220)
               .replace(/\s+/g, " ")
               .trim() === signature
         );
         if (already) continue;
-
+  
         sources.push({ text: txt, sourceLabel: `فایل: ${name || "PDF"}` });
         refItems.push(`فایل: ${name || "PDF"}`);
       }
 
-      // --- نوت‌ها ---
+      // --- Plain text files (txt/md/rtf) ---
+for (const f of textSectionFiles) {
+  const name = safeStr(f?.name);
+  const rawUrl = safeStr(f?.url);
+  const cleanUrl = rawUrl.replace(/^com\.nilpapd:\/\//i, "").trim();
+  if (!cleanUrl) continue;
+
+  const lowerName = name.toLowerCase();
+  const isPlain =
+    lowerName.endsWith(".txt") ||
+    lowerName.endsWith(".md") ||
+    lowerName.endsWith(".rtf");
+
+  // PDFها رو دوباره نگیریم
+  const isPdf = lowerName.endsWith(".pdf") || cleanUrl.toLowerCase().includes(".pdf");
+  if (!isPlain || isPdf) continue;
+
+  try {
+    const resp = await fetch(cleanUrl);
+  
+    // ✅ اگر بک‌اند غیر 2xx بود، پیام خودش رو بخون و throw کن
+    if (!resp.ok) {
+      let msg = "";
+  
+      try {
+        const j = await resp.json();
+        msg = j?.error || j?.message || "";
+      } catch {
+        try {
+          msg = await resp.text();
+        } catch {}
+      }
+  
+      // این throw میره تو catch های بالاتر که توش status===429 رو هندل کردی
+      throw { status: resp.status, message: msg || "خطای نامشخص" };
+    }
+  
+    const txtRaw = await resp.text();
+    let txt = safeStr(txtRaw);
+    if (!txt) continue;
+  
+    txt = trimToWords(txt, MAX_PDF_WORDS_EACH); // همون سقف
+    const signature = txt.slice(0, 220).replace(/\s+/g, " ").trim();
+    const already = sources.some(
+      (x) =>
+        safeStr(x.text).slice(0, 220).replace(/\s+/g, " ").trim() === signature
+    );
+    if (already) continue;
+  
+    sources.push({ text: txt, sourceLabel: `فایل: ${name || "Text"}` });
+    refItems.push(`فایل: ${name || "Text"}`);
+  } catch (e) {
+    console.warn("Plain text fetch failed:", name, e);
+    // ✅ اگر میخوای پیام 429 همونجا نمایش داده بشه (اختیاری):
+    if (Number(e?.status) === 429) throw e;
+  }
+}  
+
+  
+      // --- Notes ---
       const notes = Array.isArray(notesList) ? notesList : [];
       for (let i = 0; i < notes.length; i++) {
-        const t = String(notes[i]?.title || `Note ${i + 1}`).trim();
-        const c = String(notes[i]?.content || "").trim();
+        const t = safeStr(notes[i]?.title) || `Note ${i + 1}`;
+        
+        
+        let c = safeStr(notes[i]?.content);
         if (!c) continue;
-
+  
+        c = trimToWords(c, MAX_NOTE_WORDS_EACH);
+  
         sources.push({ text: c, sourceLabel: `یادداشت: ${t}` });
         refItems.push(`یادداشت: ${t}`);
       }
-
+      console.log("📦 FINAL SOURCES BEFORE EDGE", {
+        count: sources.length,
+        items: sources.map(s => ({
+          label: s.sourceLabel,
+          words: s.text.split(/\s+/).length,
+          preview: s.text.slice(0, 80),
+        })),
+      });
+      
+  
       if (!sources.length) {
         setArticleError("متنی برای ساخت مقاله پیدا نشد. (PDF یا نوت نداریم)");
-        try {
-          if (printWin && !printWin.closed) printWin.close();
-        } catch { }
+        try { if (printWin && !printWin.closed) printWin.close(); } catch {}
         return;
       }
+  
+      // کپ کل محتوا
+      // ✅ همه منابع را نگه دار، اگر زیاد بود به صورت مساوی کوتاه کن
+      const totalWordsAll = sources.reduce((sum, s) => sum + countWords(s.text), 0);
 
-      // =========================
-      // 2) متادیتا + نام فایل
-      // =========================
-      const isFa = (articleLang || "fa") === "fa";
-      const langSuffix = isFa ? "FA" : "EN";
-
-      const safeTopic = String(topicTitle || topicName || "NIL-Article").replace(
-        /[^\w\-]+/g,
-        "_"
+      let cappedSources = sources;
+      
+      if (totalWordsAll > MAX_TOTAL_WORDS) {
+        const n = Math.max(1, sources.length);
+        const perSourceQuota = Math.max(120, Math.floor(MAX_TOTAL_WORDS / n));
+      
+        cappedSources = sources.map((s) => ({
+          ...s,
+          text: trimToWords(s.text, perSourceQuota),
+        }));
+      }
+      
+      console.log("✂️ SOURCES AFTER FAIR CAP", {
+        count: cappedSources.length,
+        totalWords: cappedSources.reduce((sum, s) => sum + countWords(s.text), 0),
+        perSourceWordsApprox:
+          cappedSources.length > 0
+            ? Math.floor(
+                cappedSources.reduce((sum, s) => sum + countWords(s.text), 0) /
+                  cappedSources.length
+              )
+            : 0,
+      });
+      
+      const totalWordsCapped = cappedSources.reduce(
+        (sum, s) => sum + countWords(s.text),
+        0
       );
-      const filename = `NIL-Article-${safeTopic}-${langSuffix}.pdf`;
+      
+      console.log("✂️ CAPPED SOURCES", {
+        count: cappedSources.length,
+        totalWords: totalWordsCapped,
+      });
+      
+      if (cappedSources.length === 0) {
+        throw new Error(
+          "هیچ محتوایی برای ساخت مقاله پیدا نشد. PDFها استخراج نشدن یا نوت‌ها خالی هستن."
+        );
+      }
+      
+  
+      
 
-      const authorName = String(username || "کاربر سامانه NIL").trim();
-      const authorEmail = "";
 
-      const finalTitle = String(
-        topicTitle || topicName || (isFa ? "مقاله پژوهشی" : "Research Article")
-      ).trim();
+  
+      // =============== 3) Call Edge (با دریافت پیام واقعی 400/429) ===============
+      const isFaUI = (articleLang || "fa") === "fa";
+      const lang = articleLang === "en" ? "en" : "fa";
+  
+      const finalTitle = safeStr(
+        topicTitle || topicName || (isFaUI ? "مقاله پژوهشی" : "Research Article")
+      );
+  
+      const edgeData = await composeWithEdge({
+        title: finalTitle,
+        sources: cappedSources,
+        username,
+        topicId: topic_id,
+        target_lang: lang,
+        requestKey: request_key,
+      });
+  
+      const intro = trimToWords(safeStr(edgeData?.intro), 650);
+      const body = trimToWords(safeStr(edgeData?.body), 2600);
+      const conclusion = trimToWords(safeStr(edgeData?.conclusion), 650);
+  
+      const introWords = countWords(intro);
+const bodyWords = countWords(body);
+const concWords = countWords(conclusion);
 
+console.log("🧾 EDGE OUTPUT WORDS", { introWords, bodyWords, concWords });
+
+// ❗️به جای throw، فقط هشدار
+if (introWords < 80 || bodyWords < 700) {
+  console.warn("⚠️ Article is shorter than desired. Continuing anyway...");
+  // optionally: setArticleError("مقاله کوتاه‌تر از حد مطلوب ساخته شد، اما خروجی آماده است.");
+}
+  
       const refsText =
         refItems.length > 0
           ? refItems.map((x, i) => `${i + 1}) ${x}`).join("\n")
-          : isFa
-            ? "۱) فایل‌ها و نوت‌های بارگذاری‌شده در سامانه NIL"
-            : "1) User uploaded files and notes in NIL system";
-
-      // =========================
-      // 3) ساخت مقاله ترکیبی (۴ بخش) با بودجه کلمات (۸ تا ۱۲ صفحه)
-      // =========================
-      let intro = "";
-      let body = "";
-      let conclusion = "";
-
-      if (isFa) {
-        // بودجه کلمات تقریبی برای 8-12 صفحه (12pt / line-height 1.9)
-        // حدوداً 270 تا 360 کلمه در هر صفحه → 8-12 صفحه ≈ 2200 تا 4300 کلمه
-        const introWords = 650;
-        const bodyWords = 2600;
-        const conclusionWords = 650;
-
-        // seed ثابت روزانه برای خروجی قابل پیش‌بینی
-        const dayKey = new Date().toISOString().slice(0, 10);
-        const seed = `niljournal|${authorName}|${safeTopic}|${dayKey}`;
-
-        const composed = composeArticleFA(sources, {
-          seed,
-          introWords,
-          bodyWords,
-          conclusionWords,
-        });
-
-        intro = String(composed?.intro || "").trim();
-        body = String(composed?.body || "").trim();
-        conclusion = String(composed?.conclusion || "").trim();
-
-        // اگر خیلی کم بود (مثلاً منابع کم)، فقط با همون خروجی composer ادامه می‌دیم
-        // ولی طول رو کنترل می‌کنیم که خروجی خیلی زیاد نشه
-        intro = trimToWords(intro, introWords);
-        body = trimToWords(body, bodyWords);
-        conclusion = trimToWords(conclusion, conclusionWords);
-
-        // اگر هنوز خالی بود، یعنی ورودی‌ها خیلی کوتاه/بدفرمت‌اند
-        // در این حالت از mix کلیِ composer استفاده می‌کنیم، نه پشت‌سرهم فایل‌ها
-        if (!intro || countWords(intro) < 120) intro = trimToWords(body, 500);
-        if (!body || countWords(body) < 400) {
-          const joined = sources.map((s) => String(s.text || "").trim()).filter(Boolean);
-          // mix ساده: برش از وسط‌ها برای اینکه پشت‌سرهم نشه
-          const merged = joined.join("\n\n");
-          const mid = Math.floor(merged.length / 2);
-          body = trimToWords(merged.slice(Math.max(0, mid - 7000), mid + 7000), bodyWords);
-        }
-        if (!conclusion || countWords(conclusion) < 120) {
-          conclusion = trimToWords(body.split("\n\n").slice(-6).join("\n\n"), 600);
-        }
-      } else {
-        // EN ساده (اگر خواستی بعداً composer انگلیسی هم می‌دم)
-        const full = sources.map((s) => s.text).join("\n\n");
-        intro = trimToWords(full, 450);
-        body = trimToWords(full, 2400);
-        conclusion = trimToWords(full.split("\n\n").slice(-6).join("\n\n"), 450);
-      }
-
-      // =========================
-      // 4) آبجکت مقاله برای PDF (بدون abstract/keywords)
-      // =========================
+          : isFaUI
+          ? "۱) فایل‌ها و نوت‌های بارگذاری‌شده در سامانه NIL"
+          : "1) User uploaded files and notes in NIL system";
+  
       const article = {
         title: finalTitle,
-        author: authorName,
-        authorEmail,
-        date: isFa
-          ? new Date().toLocaleDateString("fa-IR")
+        author: safeStr(username || "کاربر سامانه NIL"),
+        authorEmail: "",
+        date: isFaUI
+          ? new Date().toLocaleDateString("fa-IR-u-ca-persian")
           : new Date().toLocaleDateString("en-US"),
-
         intro,
         body,
         conclusion,
         references: refsText,
       };
-
-      console.log("ARTICLE WORDS:", {
-        intro: countWords(intro),
-        body: countWords(body),
-        conclusion: countWords(conclusion),
-        total: countWords(intro) + countWords(body) + countWords(conclusion),
-      });
-
-      // =========================
-      // 5) چاپ PDF
-      // =========================
-      await renderAndPrintInWindow(printWin, article, filename, isFa);
+  
+      const safeTopic = String(finalTitle || "NIL-Article").replace(/[^\w\-]+/g, "_");
+      const filename = `NIL-Article-${safeTopic}-${isFaUI ? "FA" : "EN"}.pdf`;
+  
+      await renderAndPrintInWindow(printWin, article, filename, isFaUI);
     } catch (err) {
       console.error(err);
       setArticleError(String(err?.message || err || "خطا در ساخت PDF"));
-      try {
-        if (printWin && !printWin.closed) printWin.close();
-      } catch { }
+      try { if (printWin && !printWin.closed) printWin.close(); } catch {}
     } finally {
       setArticleLoading(false);
+      genLockRef.current = false;
     }
   };
-
-
-
-
-
-
-
-
-
-
-
+  
+  
+  
+  
+  
+  
+  
 
 
 
@@ -1747,7 +1965,7 @@ export default function JournalTopicBoard({
               {/* دکمه ساخت مقاله */}
               <button
                 type="button"
-                onClick={openArticleModal}
+                onClick={()=>setIsArticleModalOpen(true)}
                 className="
     inline-flex
     items-center justify-center
@@ -1970,14 +2188,12 @@ export default function JournalTopicBoard({
                   <div className="mb-3">
                     <div className="rounded-xl bg-slate-800/70 border border-amber-500/70 px-3 py-2 text-[10px] md:text-[11px] text-amber-200">
                       <p className="font-semibold mb-0.5">
-                        توصیهٔ محتوایی برای مقالهٔ قوی
+                       
                       </p>
                       <p>
-                        بهتر است مجموع محتوای متنی حداقل{" "}
-                        <span className="font-bold">
-                          {recommendedWords.toLocaleString("fa-IR")} کلمه
-                        </span>{" "}
-                        باشد.
+                       ساختن مقاله در یک هفته ، دوبار امکان پذیر است.
+                      
+                          
                       </p>
                     </div>
                   </div>
@@ -2000,17 +2216,7 @@ export default function JournalTopicBoard({
                         <span>فارسی</span>
                       </label>
 
-                      <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-600/80 bg-slate-800/80 cursor-pointer hover:border-sky-400/80">
-                        <input
-                          type="radio"
-                          name="articleLang"
-                          value="en"
-                          checked={articleLang === "en"}
-                          onChange={() => setArticleLang("en")}
-                          className="accent-sky-400"
-                        />
-                        <span>English</span>
-                      </label>
+                      
                     </div>
                   </div>
 
@@ -2034,7 +2240,7 @@ export default function JournalTopicBoard({
                       <button
                         type="button"
                         onClick={handleGenerateArticle}
-                        disabled={!hasAnySource || articleLoading}
+                        disabled={articleLoading}
                         className={`
                     px-3.5 py-1.5 rounded-full text-[10px] md:text-[11px] font-semibold
                     ${!hasAnySource || articleLoading
